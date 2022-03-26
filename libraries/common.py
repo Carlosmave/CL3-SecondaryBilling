@@ -1,93 +1,141 @@
-import shutil
-import time
-
+import shutil, time, os, sys
 from robot.api import logger
-import os
-import sys
-from datetime import datetime
-from RPA.Robocloud.Items import Items
-from RPA.Robocloud.Secrets import Secrets
+from datetime import datetime, timedelta
+from RPA.Robocorp.WorkItems import WorkItems
+from RPA.Robocorp.Vault import Vault
+from RPA.Browser.Selenium import Selenium
+from RPA.FileSystem import FileSystem
+from ta_bitwarden_cli.ta_bitwarden_cli import Bitwarden
+from config import OUTPUT_FOLDER
 
 
-def log_message(message: str, level: str = "INFO", console: bool = True):
-    log_switcher = {"TRACE": logger.trace, "INFO": logger.info, "WARN": logger.warn, "ERROR": logger.error}
-    if not level.upper() in log_switcher.keys() or level.upper() == "INFO":
+browser = Selenium()
+file_system = FileSystem()
+
+
+def log_message(message: str, level: str = 'INFO', console: bool = True):
+    """
+    Logs the message passed as an argument.
+    """
+    log_switcher = {
+        'TRACE': logger.trace,
+        'INFO': logger.info,
+        'WARN': logger.warn,
+        'ERROR': logger.error
+    }
+    if not level.upper() in log_switcher.keys() or level.upper() == 'INFO':
         logger.info(message, True, console)
     else:
-        if level.upper() == "ERROR":
+        if level.upper() == 'ERROR':
             logger.info(message, True, console)
         else:
             log_switcher.get(level.upper(), logger.error)(message, True)
 
 
-def get_downloaded_file_path(path_to_temp: str, extension: str, error_message: str = "") -> str:
-    downloaded_files = []
-    timer = datetime.datetime.now() + datetime.timedelta(0, 60 * 1)
-
-    while timer > datetime.datetime.now():
-        time.sleep(1)
-        downloaded_files = [f for f in os.listdir(path_to_temp) if os.path.isfile(os.path.join(path_to_temp, f))]
-        if len(downloaded_files) > 0 and downloaded_files[0].endswith(extension):
-            time.sleep(1)
-            break
-    if len(downloaded_files) == 0:
-        if error_message:
-            raise Exception(error_message)
-        return ""
-    file_path = os.path.join(path_to_temp, downloaded_files[0])
-    return file_path
-
-
 def print_version():
+    """
+    Prints the current version of the digital worker.
+    """
     try:
-        file = open("VERSION")
+        file = open('VERSION')
         try:
-            print("Version {}".format(file.read().strip()))
+            log_message('Version {}'.format(file.read().strip()))
         except Exception as ex:
-            print("Error reading VERSION file. {}".format(str(ex)))
+            log_message('Error reading VERSION file. {}'.format(str(ex)))
         finally:
             file.close()
     except Exception as e:
-        log_message("VERSION file not found. {}".format(str(e)))
+        log_message('VERSION file not found. {}'.format(str(e)))
 
 
 def create_or_clean_dir(folder_path: str):
+    """
+    Creates a directory or cleans it.
+    """
     shutil.rmtree(folder_path, ignore_errors=True)
     try:
         os.mkdir(folder_path)
     except FileExistsError:
-        pass
+        log_message('Folder {} already exists'.format(folder_path))
 
-
-def get_input(input_date: datetime, input_text: str, executor_email: str):
-    if len(sys.argv) > 1 and sys.argv[1].lower() == "local":
-        input_date = datetime(2021, 11, 3)
-        input_text = "Test text"
-        executor_email = "test@thoughtfulautomation.com"
-        log_message("LOCAL RUN")
-    else:
-        library = Items()
-        library.load_work_item_from_environment()
-
-        executor_email: str = library.get_work_item_variable("userEmail")
-        # How get text input
-        input_text: str = library.get_work_item_variable("text_input_id")
-        # How get date input
-        input_date_str: str = library.get_work_item_variable("date_input_id")
-        input_date = datetime.strptime(input_date_str, "%m/%d/%Y")
-    return input_date, input_text, executor_email
-
-
-def get_bitwarden_credentials(credentials_name: str = "bitwarden_credentials") -> dict:
+def get_bitwarden_data(credentials_name: str = 'bitwarden_credentials') -> dict:
+    """
+    Gets the data from Bitwarden.
+    """
+    items = {
+        "CentralReach": "CentralReach",
+        "Waystar": "CL Waystar",
+        "SCMedicaid": "SC Medicaid"
+    }
     if len(sys.argv) > 1 and sys.argv[1].lower() == "local":
         bitwarden_credentials = {
             "username": os.getenv("BITWARDEN_USERNAME"),
             "password": os.getenv("BITWARDEN_PASSWORD"),
-            "client_id": os.getenv("BITWARDEN_CLIENT_IT"),
-            "client_secret": os.getenv("BITWARDEN_CLIENT_SECRET"),
+            "client_id": os.getenv("BITWARDEN_CLIENT_ID"),
+            "client_secret": os.getenv("BITWARDEN_CLIENT_SECRET")
         }
-        log_message("LOCAL RUN")
     else:
-        secrets = Secrets()
-        bitwarden_credentials = secrets.get_secret(credentials_name)
-    return bitwarden_credentials
+        vault = Vault()
+        bitwarden_credentials = vault.get_secret(credentials_name)
+
+    bw = Bitwarden(bitwarden_credentials)
+    bw.bitwarden_login()
+    bw.get_data(items)
+    return bw.data
+
+
+def capture_page_screenshot(folder_path: str, name: str = None):
+    """
+    Captures and screenshot of the actual screen.
+    """
+    if not name:
+        name = "Exception_{}.png".format(datetime.now().strftime("%H_%M_%S"))
+    else:
+        name = "{}_{}.png".format(name.replace("/", ""), datetime.now().strftime("%H_%M_%S"))
+    browser.capture_page_screenshot(
+        os.path.join(
+            folder_path,
+            name,
+        )
+    )
+
+
+def act_on_element(path: str, action: str, time_range: int = 5):
+    """
+    Acts as the fluent wait of Selenium.
+    """
+    timer = datetime.now() + timedelta(0, time_range)
+    while timer > datetime.now():
+        try:
+            if action == "click_element":
+                browser.click_element(path)
+                return True
+            elif action == "find_elements":
+                results = browser.find_elements(path)
+                if results:
+                    return results
+                else:
+                    raise Exception
+            elif action == "find_element":
+                result = browser.find_element(path)
+                return result
+        except Exception as e:
+            time.sleep(1)
+    raise Exception("Element {} not found".format(path))
+
+
+def check_file_download_complete(file_extension: str, time_range: int = 10, folder: str = OUTPUT_FOLDER):
+    """
+    Checks that a file has finished downloading.
+    """
+    actual_downloaded_files_amount = len(file_system.find_files("{}/*.{}".format(folder, file_extension)))
+    downloaded_files_amount = actual_downloaded_files_amount
+    timer = datetime.now() + timedelta(0, time_range)
+    while not downloaded_files_amount == actual_downloaded_files_amount + 1 and timer > datetime.now():
+        time.sleep(1)
+        downloaded_files = file_system.find_files("{}/*.{}".format(folder, file_extension))
+        downloaded_files_amount = len(downloaded_files)
+    if downloaded_files_amount != actual_downloaded_files_amount + 1:
+        raise Exception("The file download timed out")
+    else:
+        return downloaded_files

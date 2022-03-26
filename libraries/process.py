@@ -1,5 +1,8 @@
-from libraries.common import log_message
-
+from libraries.common import log_message, capture_page_screenshot, browser
+from libraries.centralreach.centralreach import CentralReach
+from libraries.waystar.waystar import Waystar
+import time
+from config import OUTPUT_FOLDER
 
 class Process:
     def __init__(self, credentials: dict):
@@ -11,6 +14,28 @@ class Process:
          - connection to Gmail and Google Disk is created, etc.
          - the files that are necessary for the process are downloaded
         """
+
+        prefs = {
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_settings.popups": 0,
+            "directory_upgrade": True,
+            "plugins.always_open_pdf_externally": True,
+            "download.default_directory": OUTPUT_FOLDER,
+            "download.prompt_for_download": False,
+        }
+        browser.open_available_browser(preferences = prefs)
+        browser.set_window_size(1920, 1080)
+        browser.maximize_browser_window()
+        
+        print(credentials)
+        # centralreach = CentralReach(browser, credentials["CentralReach"])
+        # centralreach.login()
+        # self.centralreach = centralreach
+
+
+        # waystar = Waystar(browser, credentials["Waystar"])
+        # waystar.login()
+        # self.waystar = waystar
 
     def start(self):
         """
@@ -30,4 +55,6 @@ class Process:
          - sending a report
          - uploading files to Google Drive, etc.
         """
+        log_message("DW Process Finished")
+        browser.close_browser()
         pass

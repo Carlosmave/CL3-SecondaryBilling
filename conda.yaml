@@ -12,5 +12,5 @@ dependencies:
   - pip:
     # Define pip packages here.
     # https://pypi.org/
-    - rpaframework==9.6.0 # https://rpaframework.org/releasenotes.html
-    - ta-bitwarden-cli==0.6.2
+    - rpaframework
+    - ta-bitwarden-cli
