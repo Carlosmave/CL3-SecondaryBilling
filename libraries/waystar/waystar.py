@@ -1,5 +1,5 @@
 
-from libraries.common import act_on_element, capture_page_screenshot, log_message
+from libraries.common import act_on_element, capture_page_screenshot, log_message, files
 from config import OUTPUT_FOLDER
 
 
@@ -42,3 +42,23 @@ class Waystar():
         self.browser.click_element('//button[@name="login"]')
         #act_on_element('//div[@id="main"]', "find_element")
         return
+
+    def read_local_mapping_file(self):
+        """
+        Function that opens the mapping file and reads the specified sheets
+        """
+        log_message("Start - Read Local Mapping File")
+        mapping_file_data = {
+            "Payor List": [],
+            "Payor Address": [],
+            "Provider Modifier": []
+        }
+
+        files.open_workbook("(SHARED) Thoughtful Automation Spreadsheet - Billing.xlsx")
+        for sheet_name in mapping_file_data:
+            excel_data_dict_list = files.read_worksheet(name = sheet_name, header = True)
+            mapping_file_data[sheet_name] = excel_data_dict_list
+        files.close_workbook()
+        
+        log_message("Finish - Read Local Mapping File")
+        return mapping_file_data

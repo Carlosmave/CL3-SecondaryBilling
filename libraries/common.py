@@ -1,16 +1,17 @@
 import shutil, time, os, sys
 from robot.api import logger
 from datetime import datetime, timedelta
-from RPA.Robocorp.WorkItems import WorkItems
 from RPA.Robocorp.Vault import Vault
 from RPA.Browser.Selenium import Selenium
 from RPA.FileSystem import FileSystem
 from ta_bitwarden_cli.ta_bitwarden_cli import Bitwarden
 from config import OUTPUT_FOLDER
+from RPA.Excel.Files import Files
 
 
 browser = Selenium()
 file_system = FileSystem()
+files = Files()
 
 
 def log_message(message: str, level: str = 'INFO', console: bool = True):

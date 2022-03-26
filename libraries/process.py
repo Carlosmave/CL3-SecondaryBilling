@@ -33,9 +33,9 @@ class Process:
         # self.centralreach = centralreach
 
 
-        # waystar = Waystar(browser, credentials["Waystar"])
-        # waystar.login()
-        # self.waystar = waystar
+        waystar = Waystar(browser, credentials["Waystar"])
+        #waystar.login()
+        self.waystar = waystar
 
     def start(self):
         """
@@ -43,7 +43,9 @@ class Process:
           - splitted into macro steps that go one by one
           - contains the main process loop
         """
-        log_message("Macro Step 1. ...")
+        log_message("Macro Step 1: Prepare for Process")
+        mapping_file_data_dict = self.waystar.read_local_mapping_file()
+        #print(mapping_file_data_dict)
         # ...
         log_message("Macro Step 2. ...")
         # ...
