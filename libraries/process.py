@@ -28,14 +28,13 @@ class Process:
         browser.maximize_browser_window()
         
         print(credentials)
-        # centralreach = CentralReach(browser, credentials["CentralReach"])
-        # centralreach.login()
-        # self.centralreach = centralreach
+        centralreach = CentralReach(browser, credentials["CentralReach"])
+        centralreach.login()
+        self.centralreach = centralreach
 
-
-        waystar = Waystar(browser, credentials["Waystar"])
-        #waystar.login()
-        self.waystar = waystar
+        # waystar = Waystar(browser, credentials["Waystar"])
+        # #waystar.login()
+        # self.waystar = waystar
 
     def start(self):
         """
@@ -44,11 +43,11 @@ class Process:
           - contains the main process loop
         """
         log_message("Macro Step 1: Prepare for Process")
-        mapping_file_data_dict = self.waystar.read_local_mapping_file()
+        # mapping_file_data_dict = self.waystar.read_local_mapping_file()
         #print(mapping_file_data_dict)
-        # ...
-        log_message("Macro Step 2. ...")
-        # ...
+        log_message("Macro Step 2: Prepare to Process Claims")
+        self.centralreach.filter_claims_list()
+        
 
     def finish(self):
         """
@@ -59,4 +58,4 @@ class Process:
         """
         log_message("DW Process Finished")
         browser.close_browser()
-        pass
+        

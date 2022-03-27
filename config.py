@@ -4,7 +4,6 @@ import sys
 class RunMode:
     """
     Here you need to specify all the flags that make any changes to the site or interact with the customer.
-
     The main goal is that any developer can run DV when all flags = False and be sure that this will not affect anything.
 
     Here you can add:
