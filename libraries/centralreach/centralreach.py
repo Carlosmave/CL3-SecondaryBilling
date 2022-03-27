@@ -1,11 +1,11 @@
+from tracemalloc import start
 from libraries.common import (
     log_message,
     act_on_element,
     capture_page_screenshot,
 )
-
 from config import OUTPUT_FOLDER
-
+from datetime import datetime
 
 class CentralReach():
 
@@ -53,6 +53,11 @@ class CentralReach():
         Filters claims in the Billing menu.
         """
         log_message("Start - Filter Claims List")
-        full_link = "https://centralreach.com/#billingmanager/billing/?billingLabelIdIncluded=23593&billStatus=4&startdate=2022-03-01&enddate=2022-03-26&desde=28-10-2021&hasta={}".format(datetime.now().strftime("%d-%m-%Y"))
+        start_date = "03/01/2022"
+        end_date = "03/27/2022"
+        start_date = datetime.strptime(start_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+
+        full_link = "https://members.centralreach.com/#billingmanager/billing/?billingLabelIdIncluded=23593&billStatus=4&startdate={}&enddate={}".format(start_date, end_date)
         self.browser.go_to(full_link)
         log_message("End - Filter Claims List")

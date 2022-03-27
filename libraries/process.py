@@ -31,7 +31,6 @@ class Process:
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
         self.centralreach = centralreach
-        time.sleep(5)
 
         # waystar = Waystar(browser, credentials["Waystar"])
         # #waystar.login()
@@ -47,7 +46,8 @@ class Process:
         # mapping_file_data_dict = self.waystar.read_local_mapping_file()
         #print(mapping_file_data_dict)
         log_message("Macro Step 2: Prepare to Process Claims")
-        # self.centralreach.filter_claims_list()
+        self.centralreach.filter_claims_list()
+        
 
     def finish(self):
         """
