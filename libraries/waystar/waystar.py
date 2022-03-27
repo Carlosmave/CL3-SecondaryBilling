@@ -31,16 +31,16 @@ class Waystar():
         Function that writes the credentials in the login form.
         """
         # self.browser.click_element('//a[text()="LOGIN"]')
-        self.browser.input_text_when_element_is_visible('//input[@id="Username"]', self.waystar_login)
-        self.browser.input_text_when_element_is_visible('//input[@id="Password"]', self.waystar_password)
+        self.browser.input_text_when_element_is_visible('//input[@id="loginName"]', self.waystar_login)
+        self.browser.input_text_when_element_is_visible('//input[@id="password"]', self.waystar_password)
         return
 
     def submit_form(self):
         """
         Function that submits the login form and waits for the main page to load.
         """
-        self.browser.click_element('//button[@name="login"]')
-        #act_on_element('//div[@id="main"]', "find_element")
+        self.browser.click_element('//input[@id="loginButton"]')
+        act_on_element('//div[@id="mainContent"]', "find_element")
         return
 
     def read_local_mapping_file(self):
@@ -62,3 +62,4 @@ class Waystar():
         
         log_message("Finish - Read Local Mapping File")
         return mapping_file_data
+

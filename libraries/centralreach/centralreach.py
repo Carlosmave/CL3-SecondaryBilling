@@ -35,6 +35,7 @@ class CentralReach():
         Function that writes the credentials in the login form.
         """
         # self.browser.click_element('//a[text()="LOGIN"]')
+        act_on_element('//input[@id="Username"]', "find_element")
         self.browser.input_text_when_element_is_visible('//input[@id="Username"]', self.centralreach_login)
         self.browser.input_text_when_element_is_visible('//input[@id="Password"]', self.centralreach_password)
         return
@@ -43,6 +44,15 @@ class CentralReach():
         """
         Function that submits the login form and waits for the main page to load.
         """
-        self.browser.click_element('//button[@name="login"]')
-        #act_on_element('//div[@id="main"]', "find_element")
+        self.browser.click_element('//button[@id="login"]')
+        act_on_element('//div[@id="contact-details"]', "find_element")
         return
+    
+    def filter_claims_list(self):
+        """
+        Filters claims in the Billing menu.
+        """
+        log_message("Start - Filter Claims List")
+        full_link = "https://centralreach.com/#billingmanager/billing/?billingLabelIdIncluded=23593&billStatus=4&startdate=2022-03-01&enddate=2022-03-26&desde=28-10-2021&hasta={}".format(datetime.now().strftime("%d-%m-%Y"))
+        self.browser.go_to(full_link)
+        log_message("End - Filter Claims List")
