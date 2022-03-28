@@ -1,4 +1,4 @@
-from libraries.common import log_message, capture_page_screenshot, browser
+from libraries.common import act_on_element, log_message, capture_page_screenshot, browser
 from libraries.centralreach.centralreach import CentralReach
 from libraries.waystar.waystar import Waystar
 import time
@@ -47,6 +47,22 @@ class Process:
         #print(mapping_file_data_dict)
         log_message("Macro Step 2: Prepare to Process Claims")
         self.centralreach.filter_claims_list()
+        payor_element_list = self.centralreach.get_payors_list()
+        for payor_element in payor_element_list[:1]:
+            payor_name = payor_element.find_element_by_xpath('./span').text
+            payor_name = payor_name.replace(">", "").strip()
+            print(payor_name)
+            is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
+            if not is_excluded_payor:
+                act_on_element(payor_element, "click_element")
+                time.sleep(1)
+                claims_result_list = self.centralreach.get_claims_result()
+                time.sleep(5)
+                for claims_row in claims_result_list[:1]:
+                    print(claims_row.text)
+                    self.centralreach.view_claims(claims_row)
+                    time.sleep(5)
+                    
         
 
     def finish(self):
