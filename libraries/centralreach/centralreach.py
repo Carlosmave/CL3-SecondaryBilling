@@ -1,4 +1,4 @@
-from tracemalloc import start
+import time
 from libraries.common import (
     log_message,
     act_on_element,
@@ -24,7 +24,6 @@ class CentralReach():
             log_message("Start - Login CentralReach")
             self.browser.go_to(self.centralreach_url)
             self.input_credentials()
-            self.submit_form()
             tabs_dict["CentralReachMain"] = len(tabs_dict)
             log_message("Finish - Login CentralReach")
         except Exception as e:
@@ -34,25 +33,19 @@ class CentralReach():
 
     def input_credentials(self):
         """
-        Function that writes the credentials in the login form.
+        Function that writes the credentials and submits the login form.
         """
         # self.browser.click_element('//a[text()="LOGIN"]')
         act_on_element('//input[@id="Username"]', "find_element")
         self.browser.input_text_when_element_is_visible('//input[@id="Username"]', self.centralreach_login)
         self.browser.input_text_when_element_is_visible('//input[@id="Password"]', self.centralreach_password)
-        return
-
-    def submit_form(self):
-        """
-        Function that submits the login form and waits for the main page to load.
-        """
         self.browser.click_element('//button[@id="login"]')
         act_on_element('//div[@id="contact-details"]', "find_element")
         return
     
     def filter_claims_list(self):
         """
-        Filters claims in the Billing menu.
+        Filters claims in the Billing menu with two filters activated ('TA-Secondary' filter and date range).
         """
         log_message("Start - Filter Claims List")
         start_date = "03/01/2022"
@@ -61,52 +54,99 @@ class CentralReach():
         end_date = datetime.strptime(end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
 
         self.filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}&billingLabelIdIncluded=23593&billStatus=4".format(start_date, end_date)
-        self.browser.go_to(self.filtered_claims_url)
+        self.go_to_filtered_claims_table(tabs_dict["CentralReachMain"])
         log_message("End - Filter Claims List")
 
+    def go_to_filtered_claims_table(self, tab = 0):
+        """Function that switchs to the desired tab and goes to the url with the initial filtered claim list"""
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tab])
+        self.browser.go_to(self.filtered_claims_url)
+
+    def duplicate_filtered_claims_tab(self):
+        """
+        Function that opens a new tab and goes to the url with the filtered claim list.
+        """
+        log_message("Start - Duplicated filtered claims tab")
+        self.browser.execute_javascript("window.open()")
+        tabs_dict["CentralReachClaim1"] = len(tabs_dict)
+        self.go_to_filtered_claims_table(tabs_dict["CentralReachClaim1"])
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+        log_message("Finish - Duplicated filtered claims tab")
+        
     def get_payors_list(self):
         """
         Function that gets the payor list from the filtered claims.
         """
-        act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(normalize-space(), "Payor")]/a', 'click_element')
-        payor_element_list = act_on_element('//div[@id="insurancesFilterList"]//li/a[@class="filter-id"]', "find_elements")
+        try:
+            log_message("Start - Get payors list")
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(normalize-space(), "Payor")]/a', 'click_element')
+            payor_element_list = act_on_element('//div[@id="insurancesFilterList"]//li/a[@class="filter-id" and not(child::span[text() = " > Medicaid"])]', "find_elements")
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_payors_list")
+            raise Exception("Get payors list in CentralReach failed")
+        log_message("Finish - Get payors list")
         return payor_element_list
 
     def check_excluded_payors(self, payor_name):
         """
-        Function that check if the payer is in the excluded list.
+        Function that checks if the payor is in the excluded list.
         """
         excluded_payors = ["Florida Medicaid", "Kentucky Medicaid FFS", "Kentucky SLP", "Tricare"]
         return payor_name in excluded_payors
 
-    def duplicate_window(self):
-        url_without_filters = self.filtered_claims_url.split("&billingLabelIdIncluded=")[0].strip()
-        self.browser.execute_javascript("window.open()")
-        self.browser.switch_window(locator="NEW")
-        self.browser.go_to(url_without_filters)
-        tabs_dict["CentralReachClaim1"] = len(tabs_dict)
-        tabs_dict["CentralReachClaim2"] = len(tabs_dict)
-
     def get_claims_result(self):
+        """Function that gets the claims from list with a specific payor"""
         log_message("Start - Get Claims Result")
         try:
-            self.duplicate_window()
             self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
             rows = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")]', "find_elements")
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_claims_result")
-            raise Exception("Get claims result failed")
+            log_message("No claims result found for this payor.")
+            rows = []
+            #raise Exception("No claims result found for this payor.")
 
         log_message("Finish - Get Claims Result")
         return rows
 
-    def view_claims(self, claim_result):
-        print("claim_result", claim_result)
-        act_on_element(claim_result.find_element_by_xpath('.//button[child::i[@class="fa fa-cog"]]'), "click_element")
-        act_on_element(claim_result.find_element_by_xpath('.//div[@class="dropdown open"]/ul[position() = 1]/li[@data-title="Click to view claims generated"]/a'), "click_element")
-        print(tabs_dict)
+    def get_claim_id(self, claim_result):
+        """
+        Function that goes to the billing entry details, gets the claim id and searchs results in a new tab
+        """
+        log_message("Start - Get claim id")
+        entry_id = claim_result.get_attribute("id")
+        entry_id = entry_id.split("billing-grid-row-")[1].strip()
+        claim_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
+        self.browser.execute_javascript("window.open()")
+        tabs_dict["CentralReachClaim2"] = len(tabs_dict)
+        self.browser.switch_window(locator="NEW")
+        self.browser.go_to(claim_url)
+
+        claim_id_column_pos = 3
+        try:
+            claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(claim_id_column_pos), "find_element").text
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_id")
+            #log_message("Get claim id failed.")
+            raise Exception("Get claim id failed.")          
+        self.browser.execute_javascript("window.close()")
         self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
-        claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[3]', "find_element").text
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim3"]])
         self.browser.input_text_when_element_is_visible('//div[@class="module-search"]//input[@id="s2id_autogen2_search"]', claim_id)
-        act_on_element('//div[@class="select2-result-label"][1]', 'click_element')
+        time.sleep(1)
+        act_on_element('//li[child::div[@class="select2-result-label"]][1]', 'click_element')
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+        
+        log_message("Finish - Get claim id")
+        return claim_id
+
+    def get_claim_payor(self):
+        log_message("Start - Get claim payor")
+        payor_column_pos = 10
+        try:
+            claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element').text
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_payor")
+            #log_message("Get claim payor failed.")
+            raise Exception("Get claim payor failed.")
+        log_message("Finish - Get claim payor")
+        return claim_payor

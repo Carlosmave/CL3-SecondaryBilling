@@ -1,3 +1,4 @@
+from re import S
 from libraries.common import act_on_element, log_message, capture_page_screenshot, browser
 from libraries.centralreach.centralreach import CentralReach
 from libraries.waystar.waystar import Waystar
@@ -47,21 +48,33 @@ class Process:
         #print(mapping_file_data_dict)
         log_message("Macro Step 2: Prepare to Process Claims")
         self.centralreach.filter_claims_list()
+        self.centralreach.duplicate_filtered_claims_tab()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[:1]:
+        for payor_element in payor_element_list[:5]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
-            print(payor_name)
+            log_message("Processing claims for payor {}".format(payor_name))
             is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
             if not is_excluded_payor:
                 act_on_element(payor_element, "click_element")
                 time.sleep(1)
                 claims_result_list = self.centralreach.get_claims_result()
-                time.sleep(5)
-                for claims_row in claims_result_list[:1]:
-                    print(claims_row.text)
-                    self.centralreach.view_claims(claims_row)
-                    time.sleep(5)
+                for claims_row in claims_result_list:
+                    claim_id = self.centralreach.get_claim_id(claims_row)
+                    log_message("Processing claim with id {}".format(claim_id))
+                    claim_payor = self.centralreach.get_claim_payor()
+                    log_message("The payor of the claim is {}".format(claim_payor))
+                    sc_medicaid_cr_name = "s: south carolina medicaid"
+                    if sc_medicaid_cr_name in claim_payor.lower():
+                        print("SC Medicaid")
+                    else:
+                        print("Waystar")
+                    time.sleep(3)
+            else:
+                log_message("{} is a excluded payor. Skipping.".format(payor_name))
+            self.centralreach.go_to_filtered_claims_table()
+            time.sleep(3)
+
                     
         
 
