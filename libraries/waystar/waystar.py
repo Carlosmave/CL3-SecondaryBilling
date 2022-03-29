@@ -63,3 +63,4 @@ class Waystar():
         log_message("Finish - Read Local Mapping File")
         return mapping_file_data
 
+    
