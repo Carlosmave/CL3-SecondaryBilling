@@ -3,6 +3,7 @@ from libraries.common import (
     log_message,
     act_on_element,
     capture_page_screenshot,
+    switch_window_and_go_to_url
 )
 from config import OUTPUT_FOLDER, tabs_dict
 from datetime import datetime
@@ -54,13 +55,8 @@ class CentralReach():
         end_date = datetime.strptime(end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
 
         self.filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}&billingLabelIdIncluded=23593&billStatus=4".format(start_date, end_date)
-        self.go_to_filtered_claims_table(tabs_dict["CentralReachMain"])
+        switch_window_and_go_to_url(tabs_dict["CentralReachMain"], self.filtered_claims_url)
         log_message("End - Filter Claims List")
-
-    def go_to_filtered_claims_table(self, tab = 0):
-        """Function that switchs to the desired tab and goes to the url with the initial filtered claim list"""
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tab])
-        self.browser.go_to(self.filtered_claims_url)
 
     def duplicate_filtered_claims_tab(self):
         """
@@ -69,7 +65,8 @@ class CentralReach():
         log_message("Start - Duplicated filtered claims tab")
         self.browser.execute_javascript("window.open()")
         tabs_dict["CentralReachClaim1"] = len(tabs_dict)
-        self.go_to_filtered_claims_table(tabs_dict["CentralReachClaim1"])
+        claims_clean_url = self.filtered_claims_url.split("&billingLabelIdIncluded")[0]
+        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], claims_clean_url)
         self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
         log_message("Finish - Duplicated filtered claims tab")
         
@@ -119,8 +116,7 @@ class CentralReach():
         claim_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
         self.browser.execute_javascript("window.open()")
         tabs_dict["CentralReachClaim2"] = len(tabs_dict)
-        self.browser.switch_window(locator="NEW")
-        self.browser.go_to(claim_url)
+        switch_window_and_go_to_url(tabs_dict["CentralReachClaim2"], claim_url)
 
         claim_id_column_pos = 3
         try:
@@ -140,6 +136,9 @@ class CentralReach():
         return claim_id
 
     def get_claim_payor(self):
+        """
+        Function that gets the payor of the claim.
+        """
         log_message("Start - Get claim payor")
         payor_column_pos = 10
         try:
@@ -150,3 +149,24 @@ class CentralReach():
             raise Exception("Get claim payor failed.")
         log_message("Finish - Get claim payor")
         return claim_payor
+
+    def apply_and_remove_labels_to_claims(self):
+        """
+        Function that gets the payor of the claim.
+        """
+        log_message("Start - Apply and remove labels to claim")
+        try:
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(@class, "check")]/input[@type = "checkbox"]','click_element')
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
+            self.browser.input_text_when_element_is_visible('//input[@id="s2id_autogen12"]', "AR:SECONDARY BILLED")
+            act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "AR:Secondary Billed"]','click_element')
+            self.browser.input_text_when_element_is_visible('//input[@id="s2id_autogen13"]', "AR:Need to Bill Secondary")
+            act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "AR:Need to Bill Secondary"]','click_element')
+            act_on_element('//button[text() = "Apply Label Changes"]','click_element')
+        
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Apply_and_remove_labels_to_claim")
+            #log_message("Get claim payor failed.")
+            raise Exception("Apply and remove labels to claims.")
+        log_message("Finish - Apply and remove labels to claims")
+          

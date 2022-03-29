@@ -1,6 +1,6 @@
 
-from libraries.common import act_on_element, capture_page_screenshot, log_message, files
-from config import OUTPUT_FOLDER
+from libraries.common import act_on_element, capture_page_screenshot, log_message, switch_window_and_go_to_url, files
+from config import OUTPUT_FOLDER, tabs_dict
 
 
 class Waystar():
@@ -17,7 +17,10 @@ class Waystar():
         """
         try:
             log_message("Start - Login Waystar")
-            self.browser.go_to(self.waystar_url)
+            self.browser.execute_javascript("window.open()")
+            tabs_dict["Waystar"] = len(tabs_dict)
+            self.browser.switch_window(locator="NEW")
+            switch_window_and_go_to_url(tabs_dict["Waystar"], self.waystar_url)
             self.input_credentials()
             self.submit_form()
             log_message("Finish - Login Waystar")
@@ -63,4 +66,19 @@ class Waystar():
         log_message("Finish - Read Local Mapping File")
         return mapping_file_data
 
+    def filter_claim_by_id(self, claim_id):
+        """
+        Function that filters the claim by claim id
+        """
+        act_on_element('//select[@id="SearchCriteria_Status"]', "click_element")
+        act_on_element('//select[@id="SearchCriteria_Status"]/option[@value="-1"]', "click_element")
+        self.browser.input_text_when_element_is_visible('//input[@id="SearchCriteria_PatNumber"]', claim_id)
+        act_on_element('//select[@id="SearchCriteria_TransDate"]', "click_element")
+        act_on_element('//select[@id="SearchCriteria_TransDate"]/option[text()="All"]', "click_element")
+        act_on_element('//input[@id="ClaimListingSearchButtonBottom"]', "click_element")
+
+    def check_claim_seq(self):
+        number_to_check = "2"
+        claim_seq = act_on_element('//div[@id="claimListingTableContainer"]/table//tr[@class = "gridViewRow gridViewExpandableRow"][1]/td[contains(@class, "sequenceNumCell")]', "find_element").text
+        return number_to_check == claim_seq.strip()
     
