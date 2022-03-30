@@ -28,9 +28,9 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        # centralreach = CentralReach(browser, credentials["CentralReach"])
-        # centralreach.login()
-        # self.centralreach = centralreach
+        centralreach = CentralReach(browser, credentials["CentralReach"])
+        centralreach.login()
+        self.centralreach = centralreach
 
         waystar = Waystar(browser, credentials["Waystar"])
         waystar.login()
@@ -45,41 +45,42 @@ class Process:
         # log_message("Macro Step 1: Prepare for Process")
         # mapping_file_data_dict = self.waystar.read_local_mapping_file()
         # print(mapping_file_data_dict)
-        # log_message("Macro Step 2: Prepare to Process Claims")
-        # self.centralreach.filter_claims_list()
-        # self.centralreach.duplicate_filtered_claims_tab()
-        # payor_element_list = self.centralreach.get_payors_list()
-        # for payor_element in payor_element_list[:5]:
-        #     payor_name = payor_element.find_element_by_xpath('./span').text
-        #     payor_name = payor_name.replace(">", "").strip()
-        #     log_message("Processing claims for payor {}".format(payor_name))
-        #     is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
-        #     if not is_excluded_payor:
-        #         act_on_element(payor_element, "click_element")
-        #         time.sleep(1)
-        #         claims_result_list = self.centralreach.get_claims_result()
-        #         for claims_row in claims_result_list:
-        #             claim_id = self.centralreach.get_claim_id(claims_row)
-        #             log_message("Processing claim with id {}".format(claim_id))
-        #             claim_payor = self.centralreach.get_claim_payor()
-        #             log_message("The payor of the claim is {}".format(claim_payor))
-        #             sc_medicaid_cr_name = "s: south carolina medicaid"
-        #             if sc_medicaid_cr_name in claim_payor.lower():
-        #                 print("SC Medicaid")
-        #             else:
-        #                 print("Waystar")
-        #             time.sleep(3)
-        #     else:
-        #         log_message("{} is a excluded payor. Skipping.".format(payor_name))
-        #     switch_window_and_go_to_url(url = self.centralreach.filtered_claims_url)
-        #     time.sleep(3)
-        log_message("Macro Step 3: Process Claims in Waystar")
-        self.waystar.filter_claim_by_id("20757205")
-        is_valid_seq = self.waystar.check_claim_seq()
-        if is_valid_seq:
-            
-        time.sleep(5)
-                    
+        log_message("Macro Step 2: Prepare to Process Claims")
+        self.centralreach.filter_claims_list()
+        self.centralreach.open_extra_centralreach_tabs()
+        payor_element_list = self.centralreach.get_payors_list()
+        for payor_element in payor_element_list[:3]:
+            payor_name = payor_element.find_element_by_xpath('./span').text
+            payor_name = payor_name.replace(">", "").strip()
+            log_message("Processing claims for payor {}".format(payor_name))
+            is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
+            if not is_excluded_payor:
+                act_on_element(payor_element, "click_element")
+                time.sleep(1)
+                claims_result_list = self.centralreach.get_claims_result()
+                print("len claims_result_list", len(claims_result_list))
+                for claims_row in claims_result_list:
+                    claim_id = self.centralreach.get_claim_id(claims_row)
+                    log_message("Processing claim with id {}".format(claim_id))
+                    claim_payor = self.centralreach.get_claim_payor()
+                    log_message("The payor of the claim is {}".format(claim_payor))
+                    sc_medicaid_cr_name = "s: south carolina medicaid"
+                    if sc_medicaid_cr_name in claim_payor.lower():
+                        print("SC Medicaid")
+                    else:
+                        log_message("Macro Step 3: Process Claims in Waystar")
+                        self.waystar.filter_claim_by_id(claim_id)
+                        has_secondary_claim = self.waystar.check_claim_seq()
+                        if has_secondary_claim:
+                            log_message("Claim has a secondary in Waystar.")
+                            self.centralreach.apply_and_remove_labels_to_claims()
+                        else:
+                            log_message("Claim has not a secondary in Waystar.")
+                        time.sleep(3)
+                switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
+            else:
+                log_message("{} is a excluded payor. Skipping.".format(payor_name))
+            time.sleep(3)                    
         
 
     def finish(self):

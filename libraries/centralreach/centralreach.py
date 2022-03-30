@@ -15,7 +15,10 @@ class CentralReach():
         self.centralreach_url = credentials["url"]
         self.centralreach_login = credentials["login"]
         self.centralreach_password = credentials["password"]
-        self.filtered_claims_url = ""
+        self.base_filtered_claims_url = ""
+        self.full_filtered_claims_url = ""
+        self.labels_to_apply = ["AR:Secondary Billed"]
+        self.labels_to_remove = ["AR:Need to Bill Secondary"]
 
     def login(self):
         """
@@ -31,19 +34,17 @@ class CentralReach():
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Login")
             raise Exception("Login to CentralReach failed")
 
-
     def input_credentials(self):
         """
         Function that writes the credentials and submits the login form.
         """
-        # self.browser.click_element('//a[text()="LOGIN"]')
         act_on_element('//input[@id="Username"]', "find_element")
         self.browser.input_text_when_element_is_visible('//input[@id="Username"]', self.centralreach_login)
         self.browser.input_text_when_element_is_visible('//input[@id="Password"]', self.centralreach_password)
         self.browser.click_element('//button[@id="login"]')
         act_on_element('//div[@id="contact-details"]', "find_element")
         return
-    
+
     def filter_claims_list(self):
         """
         Filters claims in the Billing menu with two filters activated ('TA-Secondary' filter and date range).
@@ -54,21 +55,27 @@ class CentralReach():
         start_date = datetime.strptime(start_date, "%m/%d/%Y").strftime("%Y-%m-%d")
         end_date = datetime.strptime(end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
 
-        self.filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}&billingLabelIdIncluded=23593&billStatus=4".format(start_date, end_date)
-        switch_window_and_go_to_url(tabs_dict["CentralReachMain"], self.filtered_claims_url)
+        self.base_filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}".format(start_date, end_date)
+        self.full_filtered_claims_url = "{}&billingLabelIdIncluded=23593&billStatus=4".format(self.base_filtered_claims_url)
+        switch_window_and_go_to_url(tabs_dict["CentralReachMain"], self.full_filtered_claims_url)
         log_message("End - Filter Claims List")
 
-    def duplicate_filtered_claims_tab(self):
+    def open_extra_centralreach_tabs(self):
         """
-        Function that opens a new tab and goes to the url with the filtered claim list.
+        Function that opens two tabs 
+        CentralReachClaim1: claims list only with date range filter and later used for searching by claim id.
+        CentralReachClaim2: shows each billing entry details
         """
-        log_message("Start - Duplicated filtered claims tab")
+        log_message("Start - Open Extra CentralReach tabs")
         self.browser.execute_javascript("window.open()")
         tabs_dict["CentralReachClaim1"] = len(tabs_dict)
-        claims_clean_url = self.filtered_claims_url.split("&billingLabelIdIncluded")[0]
-        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], claims_clean_url)
+        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], self.base_filtered_claims_url)
+        
+        self.browser.execute_javascript("window.open()")
+        tabs_dict["CentralReachClaim2"] = len(tabs_dict)
+
         self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
-        log_message("Finish - Duplicated filtered claims tab")
+        log_message("Finish - Open Extra CentralReach tabs")
         
     def get_payors_list(self):
         """
@@ -108,29 +115,26 @@ class CentralReach():
 
     def get_claim_id(self, claim_result):
         """
-        Function that goes to the billing entry details, gets the claim id and searchs results in a new tab
+        Function that goes to the billing entry details, gets the claim id and searchs it in a new tab
         """
         log_message("Start - Get claim id")
-        entry_id = claim_result.get_attribute("id")
-        entry_id = entry_id.split("billing-grid-row-")[1].strip()
-        claim_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
-        self.browser.execute_javascript("window.open()")
-        tabs_dict["CentralReachClaim2"] = len(tabs_dict)
-        switch_window_and_go_to_url(tabs_dict["CentralReachClaim2"], claim_url)
-
-        claim_id_column_pos = 3
         try:
+            self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+            entry_id = claim_result.get_attribute("id")
+            entry_id = entry_id.split("billing-grid-row-")[1].strip()
+            billing_entry_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
+            switch_window_and_go_to_url(tabs_dict["CentralReachClaim2"], billing_entry_url)
+            print(tabs_dict)
+
+            claim_id_column_pos = 3
             claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(claim_id_column_pos), "find_element").text
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_id")
             #log_message("Get claim id failed.")
-            raise Exception("Get claim id failed.")          
-        self.browser.execute_javascript("window.close()")
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
-        self.browser.input_text_when_element_is_visible('//div[@class="module-search"]//input[@id="s2id_autogen2_search"]', claim_id)
-        time.sleep(1)
-        act_on_element('//li[child::div[@class="select2-result-label"]][1]', 'click_element')
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+            raise Exception("Get claim id failed.")
+
+        claim_search_url = "{}&claimId={}".format(self.base_filtered_claims_url, claim_id)
+        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], claim_search_url)
         
         log_message("Finish - Get claim id")
         return claim_id
@@ -152,21 +156,43 @@ class CentralReach():
 
     def apply_and_remove_labels_to_claims(self):
         """
-        Function that gets the payor of the claim.
+        Function that bulk applies and removes certain labels to claims.
         """
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim2"]])
         log_message("Start - Apply and remove labels to claim")
         try:
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(@class, "check")]/input[@type = "checkbox"]','click_element')
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
-            self.browser.input_text_when_element_is_visible('//input[@id="s2id_autogen12"]', "AR:SECONDARY BILLED")
-            act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "AR:Secondary Billed"]','click_element')
-            self.browser.input_text_when_element_is_visible('//input[@id="s2id_autogen13"]', "AR:Need to Bill Secondary")
-            act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "AR:Need to Bill Secondary"]','click_element')
-            act_on_element('//button[text() = "Apply Label Changes"]','click_element')
+            
+            for label in self.labels_to_apply:
+                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[@class="select2-input select2-default"]', label)
+                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
+            
+            for label in self.labels_to_remove:
+                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Remove Labels"]//input[@class="select2-input select2-default"]', label)
+                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
+            
+            # act_on_element('//button[text() = "Apply Label Changes"]','click_element')
+            act_on_element('//div[@class="modal in" and descendant::h2[contains(text(), "Bulk Apply Labels")]]//button[text() = "Close"]','click_element')
         
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
+            act_on_element('//input[@class = "form-control hasDatepicker"]','find_element')
+            todays_date = datetime.today().strftime("%m/%d/%Y")
+            self.browser.input_text_when_element_is_visible('//input[@id="dp1648594034096"]]', todays_date)
+            
+            act_on_element('//select[@name="payment-type"]', "click_element")
+            act_on_element('//select[@name="payment-type"]/option[text() = "Activity"]', "click_element")
+            reference_txt = ", ".join(self.labels_to_apply)
+            self.browser.input_text_when_element_is_visible('//input[contains(@data-bind, "reference")]', reference_txt)
+            act_on_element('//select[@class = "form-control required add-create-payor"]', "click_element")
+            act_on_element('//select[@class = "form-control required add-create-payor"]/option[contains(text(), "Secondary:")]', "click_element")
+
+            #act_on_element('//button[text() = "Apply Payments"]','click_element')
+            act_on_element('//div[@class="bulk-payments-container"]//button[text() = "Cancel"]','click_element')
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Apply_and_remove_labels_to_claim")
-            #log_message("Get claim payor failed.")
-            raise Exception("Apply and remove labels to claims.")
-        log_message("Finish - Apply and remove labels to claims")
+            #log_message("Apply and remove labels to claims failed.")
+            raise Exception("Apply and remove labels to claims failed.")
+    
+        log_message("Finish - Apply and remove labels to claims.")
           
