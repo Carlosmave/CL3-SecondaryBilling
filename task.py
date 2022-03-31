@@ -1,5 +1,5 @@
 from config import TEMP_FOLDER, OUTPUT_FOLDER
-from libraries.common import log_message, print_version, create_or_clean_dir, get_bitwarden_data, capture_page_screenshot#, get_input
+from libraries.common import log_message, print_version, create_or_clean_dir, get_bitwarden_data, capture_page_screenshot
 from libraries.process import Process
 
 def main():
@@ -12,10 +12,6 @@ def main():
     # Get credentials
     credentials = get_bitwarden_data()
 
-    # Get inputs
-    # input_date, input_text, executor_email = get_input()
-    # log_message("Executed by: {}".format(executor_email))
-    # log_message("Received input data: {}; {}".format(input_date, input_text))
 
     process = Process(credentials)
     try:

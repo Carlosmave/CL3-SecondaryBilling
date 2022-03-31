@@ -12,6 +12,7 @@ class Waystar():
         self.waystar_password = credentials["password"]
         self.additional_authentication_answer = "Thoughtful Automation"
         self.claims_search_url = "https://claims.zirmed.com/Claims/Listing/Index?appid=1"
+        self.mapping_file_name = "(SHARED) Thoughtful Automation Spreadsheet - Billing.xlsx"
 
     def login(self):
         """
@@ -53,24 +54,27 @@ class Waystar():
         except:
             pass
 
-    def read_local_mapping_file(self):
+    def read_mapping_file(self):
         """
         Function that opens the mapping file and reads the specified sheets
         """
-        log_message("Start - Read Local Mapping File")
+        log_message("Start - Read Mapping File")
         mapping_file_data = {
             "Payor List": [],
             "Payor Address": [],
             "Provider Modifier": []
         }
+        try:
+            files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
+            for sheet_name in mapping_file_data:
+                excel_data_dict_list = files.read_worksheet(name = sheet_name, header = True)
+                mapping_file_data[sheet_name] = excel_data_dict_list
+            files.close_workbook()
+        except Exception as e:
+            log_message("Read mapping file failed.")
+            raise Exception("Read mapping file failed.")
 
-        files.open_workbook("(SHARED) Thoughtful Automation Spreadsheet - Billing.xlsx")
-        for sheet_name in mapping_file_data:
-            excel_data_dict_list = files.read_worksheet(name = sheet_name, header = True)
-            mapping_file_data[sheet_name] = excel_data_dict_list
-        files.close_workbook()
-        
-        log_message("Finish - Read Local Mapping File")
+        log_message("Finish - Read Mapping File")
         return mapping_file_data
 
     def filter_claim_by_id(self, claim_id):
@@ -86,7 +90,34 @@ class Waystar():
         act_on_element('//input[@id="ClaimListingSearchButtonBottom"]', "click_element")
 
     def check_claim_seq(self):
+        """
+        Function that checks if the claim seq is "2" (has secondary) 
+        """
         number_to_check = "2"
         claim_seq = act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]/td[contains(@class, "sequenceNumCell")]', "find_element").text
         return number_to_check == claim_seq.strip()
-    
+
+    def check_payer_to_exclude_waystar(self):
+        """
+        Function that checks if the payer has to be excluded and skipped.
+        """
+        payer_name_waystar = act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]/td[contains(@class, "subPayerCell")]/span', "find_element").get_attribute("title")
+        return "tricare" in payer_name_waystar.lower() or "humana" in payer_name_waystar.lower()
+
+    def check_if_has_remit(self):
+        """
+        Function that checks if the claim has a remit attached to it
+        """
+        try:
+            act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"tagRow")][1]//span[@title = "Has Remit"]', 'find_element', 2)
+            return True
+        except:
+            log_message("Claim doesn't have remit")
+            return False
+
+    def populate_payer_information(self):
+        print("hovering")
+        self.browser.mouse_over('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]')
+        act_on_element('//a[@id="gridActionSecond"]', 'click_element')
+        time.sleep(5)
+        raise Exception("Raising error")

@@ -17,8 +17,7 @@ class CentralReach():
         self.centralreach_password = credentials["password"]
         self.base_filtered_claims_url = ""
         self.full_filtered_claims_url = ""
-        self.labels_to_apply = ["AR:Secondary Billed"]
-        self.labels_to_remove = ["AR:Need to Bill Secondary"]
+
 
     def login(self):
         """
@@ -146,7 +145,7 @@ class CentralReach():
         log_message("Start - Get claim payor")
         payor_column_pos = 10
         try:
-            claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element').text
+            claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_payor")
             #log_message("Get claim payor failed.")
@@ -154,39 +153,42 @@ class CentralReach():
         log_message("Finish - Get claim payor")
         return claim_payor
 
-    def apply_and_remove_labels_to_claims(self):
+    def apply_and_remove_labels_to_claims(self, labels_to_apply, labels_to_remove):
         """
         Function that bulk applies and removes certain labels to claims.
         """
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim2"]])
         log_message("Start - Apply and remove labels to claim")
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
+        time.sleep(2)
         try:
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(@class, "check")]/input[@type = "checkbox"]','click_element')
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
             
-            for label in self.labels_to_apply:
+            for label in labels_to_apply:
                 self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[@class="select2-input select2-default"]', label)
                 act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
             
-            for label in self.labels_to_remove:
+            for label in labels_to_remove:
                 self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Remove Labels"]//input[@class="select2-input select2-default"]', label)
                 act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
             
+            time.sleep(2)
             # act_on_element('//button[text() = "Apply Label Changes"]','click_element')
             act_on_element('//div[@class="modal in" and descendant::h2[contains(text(), "Bulk Apply Labels")]]//button[text() = "Close"]','click_element')
+    
         
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
             act_on_element('//input[@class = "form-control hasDatepicker"]','find_element')
             todays_date = datetime.today().strftime("%m/%d/%Y")
-            self.browser.input_text_when_element_is_visible('//input[@id="dp1648594034096"]]', todays_date)
+            self.browser.input_text_when_element_is_visible('//input[@class = "form-control hasDatepicker"]', todays_date)
             
             act_on_element('//select[@name="payment-type"]', "click_element")
             act_on_element('//select[@name="payment-type"]/option[text() = "Activity"]', "click_element")
-            reference_txt = ", ".join(self.labels_to_apply)
+            reference_txt = ", ".join(labels_to_apply)
             self.browser.input_text_when_element_is_visible('//input[contains(@data-bind, "reference")]', reference_txt)
             act_on_element('//select[@class = "form-control required add-create-payor"]', "click_element")
             act_on_element('//select[@class = "form-control required add-create-payor"]/option[contains(text(), "Secondary:")]', "click_element")
-
+            time.sleep(8)
             #act_on_element('//button[text() = "Apply Payments"]','click_element')
             act_on_element('//div[@class="bulk-payments-container"]//button[text() = "Cancel"]','click_element')
         except Exception as e:

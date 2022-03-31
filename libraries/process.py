@@ -1,5 +1,5 @@
-from re import S
 from libraries.common import act_on_element, log_message, capture_page_screenshot, browser, switch_window_and_go_to_url
+from libraries.sharepoint.sharepoint import SharePoint
 from libraries.centralreach.centralreach import CentralReach
 from libraries.waystar.waystar import Waystar
 import time
@@ -28,6 +28,9 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
+        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        # sharepoint.download_file()
+        
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
         self.centralreach = centralreach
@@ -42,14 +45,14 @@ class Process:
           - splitted into macro steps that go one by one
           - contains the main process loop
         """
-        # log_message("Macro Step 1: Prepare for Process")
-        # mapping_file_data_dict = self.waystar.read_local_mapping_file()
-        # print(mapping_file_data_dict)
+        log_message("Macro Step 1: Prepare for Process")
+        #mapping_file_data_dict = self.waystar.read_mapping_file()
+        #print(mapping_file_data_dict)
         log_message("Macro Step 2: Prepare to Process Claims")
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[:3]:
+        for payor_element in payor_element_list[:4]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -73,9 +76,26 @@ class Process:
                         has_secondary_claim = self.waystar.check_claim_seq()
                         if has_secondary_claim:
                             log_message("Claim has a secondary in Waystar.")
-                            self.centralreach.apply_and_remove_labels_to_claims()
+                            labels_to_apply = ["AR:Secondary Billed"]
+                            labels_to_remove = ["AR:Need to Bill Secondary"]
+                            self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                         else:
                             log_message("Claim has not a secondary in Waystar.")
+                            apply_exclusion_label = self.waystar.check_payer_to_exclude_waystar()
+                            if  apply_exclusion_label:
+                                labels_to_apply = ["TA: Payor Exclusion"]
+                                labels_to_remove = []
+                                self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                            else:
+                                has_remit = self.waystar.check_if_has_remit()
+                                if not has_remit:
+                                    labels_to_apply = ["TA: No Primary Remit"]
+                                    labels_to_remove = []
+                                    self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                else:
+                                    log_message("Has remit. skipping")
+                                    time.sleep(4)
+                                    self.waystar.populate_payer_information()
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:

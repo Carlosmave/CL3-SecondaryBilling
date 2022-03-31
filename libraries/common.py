@@ -143,6 +143,6 @@ def check_file_download_complete(file_extension: str, time_range: int = 10, fold
 
 
 def switch_window_and_go_to_url(tab: int = 0, url: str = ""):
-    """Function that switchs to the desired tab and goes to the url"""
+    """Function that switches to the desired tab and goes to the url"""
     browser.switch_window(locator=browser.get_window_handles()[tab])
     browser.go_to(url)
