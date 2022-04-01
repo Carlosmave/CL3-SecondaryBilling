@@ -22,7 +22,6 @@ class Waystar():
             log_message("Start - Login Waystar")
             self.browser.execute_javascript("window.open()")
             tabs_dict["Waystar"] = len(tabs_dict)
-            self.browser.switch_window(locator="NEW")
             switch_window_and_go_to_url(tabs_dict["Waystar"], self.waystar_url)
             self.input_credentials()
             self.check_additional_authentication()
@@ -65,7 +64,8 @@ class Waystar():
             "Provider Modifier": []
         }
         try:
-            files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
+            #files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
+            files.open_workbook("{}".format(self.mapping_file_name))
             for sheet_name in mapping_file_data:
                 excel_data_dict_list = files.read_worksheet(name = sheet_name, header = True)
                 mapping_file_data[sheet_name] = excel_data_dict_list
@@ -115,9 +115,31 @@ class Waystar():
             log_message("Claim doesn't have remit")
             return False
 
-    def populate_payer_information(self):
-        print("hovering")
+    def populate_payer_information(self, mapping_file_data_dict, payor_name_cr):
+        """
+        Function that populates payer information from the mapping file to Waystar using the CentralReach payor name.
+        """
         self.browser.mouse_over('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]')
         act_on_element('//a[@id="gridActionSecond"]', 'click_element')
+        tabs_dict["WaystarSubInfo"] = len(tabs_dict)
+        self.browser.switch_window(locator="NEW")
+        act_on_element('//input[@id="scr1_ChangePayerButton"]', 'click_element')
+        payor = next((payor for payor in mapping_file_data_dict['Payor List'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
+        print("Payor", payor)
+        time.sleep(5)
+        if payor:
+            self.browser.input_text_when_element_is_visible('//input[@id="scr1_name"]', payor['Waystar Payer Name'])
+            self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerid"]', payor['Payer ID'])
+            if payor['Requires Address'].upper() == "YES":
+                payor_address = next((payor for payor in mapping_file_data_dict['Payor Address'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
+                print("Payor address", payor_address)
+                if payor_address:
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payeradd1"]', payor['Address Line 1'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payercity"]', payor['City'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerstate"]', payor['State'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerzip"]', payor['Zip'])
+
+        #act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
+        #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
         time.sleep(5)
         raise Exception("Raising error")

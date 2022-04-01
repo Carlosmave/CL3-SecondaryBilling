@@ -28,8 +28,8 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
-        # sharepoint.download_file()
+        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        sharepoint.download_file()
         
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
@@ -46,13 +46,13 @@ class Process:
           - contains the main process loop
         """
         log_message("Macro Step 1: Prepare for Process")
-        #mapping_file_data_dict = self.waystar.read_mapping_file()
-        #print(mapping_file_data_dict)
+        mapping_file_data_dict = self.waystar.read_mapping_file()
+        print(mapping_file_data_dict)
         log_message("Macro Step 2: Prepare to Process Claims")
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[:4]:
+        for payor_element in payor_element_list[3:]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -61,6 +61,7 @@ class Process:
                 act_on_element(payor_element, "click_element")
                 time.sleep(1)
                 claims_result_list = self.centralreach.get_claims_result()
+                # time.sleep(5)
                 print("len claims_result_list", len(claims_result_list))
                 for claims_row in claims_result_list:
                     claim_id = self.centralreach.get_claim_id(claims_row)
@@ -94,8 +95,8 @@ class Process:
                                     self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                                 else:
                                     log_message("Has remit. skipping")
-                                    time.sleep(4)
-                                    self.waystar.populate_payer_information()
+                                    # time.sleep(4)
+                                    #self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:

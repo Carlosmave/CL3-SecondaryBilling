@@ -178,7 +178,7 @@ class CentralReach():
     
         
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
-            act_on_element('//input[@class = "form-control hasDatepicker"]','find_element')
+            act_on_element('//input[@class = "form-control hasDatepicker"]','find_element', 10)
             todays_date = datetime.today().strftime("%m/%d/%Y")
             self.browser.input_text_when_element_is_visible('//input[@class = "form-control hasDatepicker"]', todays_date)
             
