@@ -7,6 +7,7 @@ from libraries.common import (
 )
 from config import OUTPUT_FOLDER, tabs_dict
 from datetime import datetime
+import calendar
 
 class CentralReach():
 
@@ -198,3 +199,37 @@ class CentralReach():
     
         log_message("Finish - Apply and remove labels to claims.")
           
+    def get_authorization_number(self):
+        """
+        Function that gets the authorization number of the secondary Claim.
+        """
+        log_message("Start - Get authorization number")
+        client_name_column_pos = 9
+        date_column_pos = 7
+        code_column_pos = 5
+        try:
+            self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
+            contact_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element').get_attribute("contactid")
+            claim_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(date_column_pos),'find_element').text
+            claim_month_date = claim_date.split("/")[0].strip()
+            auth_url = "https://members.centralreach.com/#billingmanager/authorizations/?clientId={}".format(contact_id)
+            self.browser.go_to(auth_url)
+            act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element')
+            time.sleep(3)
+            act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
+            time.sleep(1)
+            
+            secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
+            for secondary_row in secondary_rows:
+                print(secondary_row.text)
+                auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+                print(auth_doc_url)
+                self.browser.go_to(auth_doc_url)
+                authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+                print("authorization_number", authorization_number)
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
+            #log_message("Get authorization number failed.")
+            raise Exception("Get authorization number failed.")
+        log_message("Finish - Get authorization number")
+        raise Exception("Breakpoint")

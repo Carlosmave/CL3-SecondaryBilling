@@ -45,10 +45,10 @@ class Process:
           - splitted into macro steps that go one by one
           - contains the main process loop
         """
-        log_message("Macro Step 1: Prepare for Process")
+        log_message("Macro Step 2: Prepare for Process")
         mapping_file_data_dict = self.waystar.read_mapping_file()
         print(mapping_file_data_dict)
-        log_message("Macro Step 2: Prepare to Process Claims")
+        log_message("Macro Step 3: Prepare to Process Claims")
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
@@ -72,7 +72,7 @@ class Process:
                     if sc_medicaid_cr_name in claim_payor.lower():
                         print("SC Medicaid")
                     else:
-                        log_message("Macro Step 3: Process Claims in Waystar")
+                        log_message("Macro Step 4: Process Claims in Waystar")
                         self.waystar.filter_claim_by_id(claim_id)
                         has_secondary_claim = self.waystar.check_claim_seq()
                         if has_secondary_claim:
@@ -94,9 +94,10 @@ class Process:
                                     labels_to_remove = []
                                     self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                                 else:
-                                    log_message("Has remit. skipping")
+                                    log_message("Has remit. Work In Progress")
                                     # time.sleep(4)
-                                    #self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
+                                    # self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
+                                    # self.centralreach.get_authorization_number()
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:

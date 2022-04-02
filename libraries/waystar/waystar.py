@@ -126,7 +126,6 @@ class Waystar():
         act_on_element('//input[@id="scr1_ChangePayerButton"]', 'click_element')
         payor = next((payor for payor in mapping_file_data_dict['Payor List'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
         print("Payor", payor)
-        time.sleep(5)
         if payor:
             self.browser.input_text_when_element_is_visible('//input[@id="scr1_name"]', payor['Waystar Payer Name'])
             self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerid"]', payor['Payer ID'])
@@ -138,8 +137,9 @@ class Waystar():
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payercity"]', payor['City'])
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerstate"]', payor['State'])
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerzip"]', payor['Zip'])
-
-        #act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
-        #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
         time.sleep(5)
-        raise Exception("Raising error")
+        act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
+        #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
+        act_on_element('//input[@id="NextButton"]', 'click_element')
+
+        #raise Exception("Breakpoint")
