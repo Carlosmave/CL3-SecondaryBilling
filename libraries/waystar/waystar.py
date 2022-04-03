@@ -1,4 +1,5 @@
 
+from platform import release
 from libraries.common import act_on_element, capture_page_screenshot, log_message, switch_window_and_go_to_url, files
 from config import OUTPUT_FOLDER, tabs_dict
 import time
@@ -143,3 +144,45 @@ class Waystar():
         act_on_element('//input[@id="NextButton"]', 'click_element')
 
         #raise Exception("Breakpoint")
+
+    def populate_authorization_number(self, authorization_number):
+        """
+        Function that populates authorization number extracted from CentralReach in the Prior Auth input
+        """
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["WaystarSubInfo"]])
+        self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV2_priorauth"]', authorization_number)
+        time.sleep(5)
+
+        #raise Exception("Breakpoint")
+
+    def populate_subscriber_information(self, subscriber_info_dict):
+        """
+        Function that populates authorization number extracted from CentralReach in the Prior Auth input
+        """
+
+        release_information_option_value = "Y"
+        assign_benefits_option_value = "Y"
+
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["WaystarSubInfo"]])
+        self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_fname"]', subscriber_info_dict["first_name"])
+        self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_lname"]', subscriber_info_dict["last_name"])
+        act_on_element('//select[@id="scr1_FV3_sex"]', "click_element")
+        act_on_element('//select[@id="scr1_FV3_sex"]/option[@value = "{}"]'.format(subscriber_info_dict["gender"]), "click_element")
+
+        patient_relationship_to_insurance = act_on_element('//select[@id="scr1_FV3_relation"]', "find_element").text
+        text_to_check = "Self (18)"
+        if patient_relationship_to_insurance.upper() == text_to_check.upper():
+            self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_birthdate"]', subscriber_info_dict["birthday"])
+        else:
+            self.browser.clear_element_text('//input[@id="scr1_FV3_birthdate"]')
+            
+        self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_membernum"]', subscriber_info_dict["insured_id"])
+        act_on_element('//select[@id="scr1_FV3_relation"]', "click_element")
+        act_on_element('//select[@id="scr1_FV3_relation"]/option[text() = "{}"]'.format(subscriber_info_dict["patient_relationship_to_subscriber"]), "click_element")
+        act_on_element('//select[@id="scr1_FV3_releaseinfo"]', "click_element")
+        act_on_element('//select[@id="scr1_FV3_relation"]/option[@value = "{}"]'.format(release_information_option_value), "click_element")
+        act_on_element('//select[@id="scr1_FV3_assignbenefits"]', "click_element")
+        act_on_element('//select[@id="scr1_FV3_assignbenefits"]/option[@value = "{}"]'.format(assign_benefits_option_value), "click_element")
+        act_on_element('//input[@id="NextButton"]', 'click_element')
+        time.sleep(5)   
+        #act_on_element('//input[@id="NextButton"]', 'click_element')

@@ -207,6 +207,7 @@ class CentralReach():
         client_name_column_pos = 9
         date_column_pos = 7
         code_column_pos = 5
+        authorization_number = ""
         try:
             self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
             contact_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element').get_attribute("contactid")
@@ -227,9 +228,12 @@ class CentralReach():
                 self.browser.go_to(auth_doc_url)
                 authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
                 print("authorization_number", authorization_number)
+                authorization_number = ""
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
             #log_message("Get authorization number failed.")
             raise Exception("Get authorization number failed.")
         log_message("Finish - Get authorization number")
-        raise Exception("Breakpoint")
+        time.sleep(5)
+        return authorization_number
+        #raise Exception("Breakpoint")

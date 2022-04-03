@@ -38,6 +38,7 @@ class Process:
         waystar = Waystar(browser, credentials["Waystar"])
         waystar.login()
         self.waystar = waystar
+        
 
     def start(self):
         """
@@ -97,7 +98,13 @@ class Process:
                                     log_message("Has remit. Work In Progress")
                                     # time.sleep(4)
                                     # self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
-                                    # self.centralreach.get_authorization_number()
+                                    # authorization_number = self.centralreach.get_authorization_number()
+                                    # if authorization_number == "":
+                                    #     labels_to_apply = ["TA: No Secondary Auth"]
+                                    #     labels_to_remove = []
+                                    #     self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                    # else:
+                                    #     self.waystar.populate_authorization_number(authorization_number)
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:
