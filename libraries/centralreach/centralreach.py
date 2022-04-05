@@ -7,7 +7,6 @@ from libraries.common import (
 )
 from config import OUTPUT_FOLDER, tabs_dict
 from datetime import datetime
-import calendar
 
 class CentralReach():
 
@@ -18,6 +17,7 @@ class CentralReach():
         self.centralreach_password = credentials["password"]
         self.base_filtered_claims_url = ""
         self.full_filtered_claims_url = ""
+        self.client_id = ""
 
 
     def login(self):
@@ -147,6 +147,7 @@ class CentralReach():
         payor_column_pos = 10
         try:
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
+            self.get_client_id()
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_payor")
             #log_message("Get claim payor failed.")
@@ -199,41 +200,67 @@ class CentralReach():
     
         log_message("Finish - Apply and remove labels to claims.")
           
+    def get_client_id(self):
+        client_name_column_pos = 9
+        self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element').get_attribute("contactid")
+
     def get_authorization_number(self):
         """
         Function that gets the authorization number of the secondary Claim.
         """
         log_message("Start - Get authorization number")
-        client_name_column_pos = 9
         date_column_pos = 7
         code_column_pos = 5
         authorization_number = ""
+
+        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
+        claim_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(date_column_pos),'find_element').text
+        claim_date = datetime.strptime(claim_date, "%m/%d/%y")
+        claim_month_date = int(claim_date.strftime("%m"))
+        claim_year_date = claim_date.strftime("%Y")
+        print("claim_month_date", claim_month_date)
+        print("claim_year_date", claim_year_date)
+        auth_url = "https://members.centralreach.com/#billingmanager/authorizations/?clientId={}".format(self.client_id)
+        
+        self.browser.execute_javascript("window.open()")
+        tabs_dict["CentralReachClientInfo"] = len(tabs_dict)
+        switch_window_and_go_to_url(tabs_dict["CentralReachClientInfo"], auth_url)
+        act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element')
+        act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
+        act_on_element('//button[child::span[@data-bind="text: year"]]','click_element')
+        act_on_element('//li/a[@data-click="setYear" and text() = "{}"]'.format(claim_year_date),'click_element')
+        time.sleep(3)
         try:
-            self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
-            contact_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element').get_attribute("contactid")
-            claim_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(date_column_pos),'find_element').text
-            claim_month_date = claim_date.split("/")[0].strip()
-            auth_url = "https://members.centralreach.com/#billingmanager/authorizations/?clientId={}".format(contact_id)
-            self.browser.go_to(auth_url)
-            act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element')
-            time.sleep(3)
-            act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
-            time.sleep(1)
-            
-            secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
-            for secondary_row in secondary_rows:
-                print(secondary_row.text)
-                auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
-                print(auth_doc_url)
-                self.browser.go_to(auth_doc_url)
-                authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
-                print("authorization_number", authorization_number)
-                authorization_number = ""
+            # secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
+            secondary_row = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_element')
         except Exception as e:
+            print(e)
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
-            #log_message("Get authorization number failed.")
-            raise Exception("Get authorization number failed.")
+            log_message("Secondary claim not found")   
+        else:
+            print(secondary_row.text)
+            auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+            print(auth_doc_url)
+            self.browser.go_to(auth_doc_url)
+            authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+            print("authorization_number", authorization_number)
+            #authorization_number = ""
+            # for secondary_row in secondary_rows:
+            #     print(secondary_row.text)
+            #     auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+            #     print(auth_doc_url)
+            #     self.browser.go_to(auth_doc_url)
+            #     authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+            #     print("authorization_number", authorization_number)
+            #     authorization_number = ""
+        
+            #raise Exception("Get authorization number failed.")
         log_message("Finish - Get authorization number")
         time.sleep(5)
         return authorization_number
         #raise Exception("Breakpoint")
+
+    def get_payor_information(self):
+        payors_patient_info_url = "https://members.centralreach.com/#contacts/details/?id={}&mode=profile&edit=payors".format(self.client_id)
+        switch_window_and_go_to_url(tabs_dict["CentralReachClientInfo"], payors_patient_info_url)
+        secondary_payor_section = act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: South Carolina Medicaid"]]','find_element')

@@ -65,8 +65,8 @@ class Waystar():
             "Provider Modifier": []
         }
         try:
-            files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
-            #files.open_workbook("{}".format(self.mapping_file_name))
+            #files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
+            files.open_workbook("{}".format(self.mapping_file_name))
             for sheet_name in mapping_file_data:
                 excel_data_dict_list = files.read_worksheet(name = sheet_name, header = True)
                 mapping_file_data[sheet_name] = excel_data_dict_list
@@ -141,7 +141,7 @@ class Waystar():
         time.sleep(5)
         act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
         #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
-        act_on_element('//input[@id="NextButton"]', 'click_element')
+        #act_on_element('//input[@id="NextButton"]', 'click_element')
 
         #raise Exception("Breakpoint")
 

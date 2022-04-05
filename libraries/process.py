@@ -28,8 +28,8 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
-        sharepoint.download_file()
+        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        # sharepoint.download_file()
         
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
@@ -53,7 +53,7 @@ class Process:
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[3:]:
+        for payor_element in payor_element_list[4:]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -80,31 +80,33 @@ class Process:
                             log_message("Claim has a secondary in Waystar.")
                             labels_to_apply = ["AR:Secondary Billed"]
                             labels_to_remove = ["AR:Need to Bill Secondary"]
-                            self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                            #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                         else:
                             log_message("Claim has not a secondary in Waystar.")
                             apply_exclusion_label = self.waystar.check_payer_to_exclude_waystar()
                             if  apply_exclusion_label:
                                 labels_to_apply = ["TA: Payor Exclusion"]
                                 labels_to_remove = []
-                                self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                             else:
                                 has_remit = self.waystar.check_if_has_remit()
                                 if not has_remit:
                                     labels_to_apply = ["TA: No Primary Remit"]
                                     labels_to_remove = []
-                                    self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                    #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                                 else:
                                     log_message("Has remit. Work In Progress")
                                     # time.sleep(4)
-                                    # self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
-                                    # authorization_number = self.centralreach.get_authorization_number()
-                                    # if authorization_number == "":
-                                    #     labels_to_apply = ["TA: No Secondary Auth"]
-                                    #     labels_to_remove = []
-                                    #     self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                    # else:
-                                    #     self.waystar.populate_authorization_number(authorization_number)
+                                    self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
+                                    authorization_number = self.centralreach.get_authorization_number()
+                                    if authorization_number == "":
+                                        print("No Secondary auth")
+                                        labels_to_apply = ["TA: No Secondary Auth"]
+                                        labels_to_remove = []
+                                        self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                    else:
+                                        self.waystar.populate_authorization_number(authorization_number)
+                                    raise Exception("Breakpoint")
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:
