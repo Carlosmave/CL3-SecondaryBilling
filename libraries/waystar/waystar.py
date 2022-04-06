@@ -134,10 +134,10 @@ class Waystar():
                 payor_address = next((payor for payor in mapping_file_data_dict['Payor Address'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
                 print("Payor address", payor_address)
                 if payor_address:
-                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payeradd1"]', payor['Address Line 1'])
-                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payercity"]', payor['City'])
-                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerstate"]', payor['State'])
-                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerzip"]', payor['Zip'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payeradd1"]', payor_address['Address Line 1'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payercity"]', payor_address['City'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerstate"]', payor_address['State'])
+                    self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerzip"]', payor_address['Zip'])
         time.sleep(5)
         act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
         #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
@@ -169,20 +169,16 @@ class Waystar():
         act_on_element('//select[@id="scr1_FV3_sex"]', "click_element")
         act_on_element('//select[@id="scr1_FV3_sex"]/option[@value = "{}"]'.format(subscriber_info_dict["gender"]), "click_element")
 
-        patient_relationship_to_insurance = act_on_element('//select[@id="scr1_FV3_relation"]', "find_element").text
-        text_to_check = "Self (18)"
-        if patient_relationship_to_insurance.upper() == text_to_check.upper():
-            self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_birthdate"]', subscriber_info_dict["birthday"])
-        else:
-            self.browser.clear_element_text('//input[@id="scr1_FV3_birthdate"]')
+
+        self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_birthdate"]', subscriber_info_dict["birthday"])
+        #self.browser.clear_element_text('//input[@id="scr1_FV3_birthdate"]')
             
         self.browser.input_text_when_element_is_visible('//input[@id="scr1_FV3_membernum"]', subscriber_info_dict["insured_id"])
         act_on_element('//select[@id="scr1_FV3_relation"]', "click_element")
-        act_on_element('//select[@id="scr1_FV3_relation"]/option[text() = "{}"]'.format(subscriber_info_dict["patient_relationship_to_subscriber"]), "click_element")
+        act_on_element('//select[@id="scr1_FV3_relation"]/option[@value = "{}"]'.format(subscriber_info_dict["patient_relationship_to_subscriber"]), "click_element")
         act_on_element('//select[@id="scr1_FV3_releaseinfo"]', "click_element")
-        act_on_element('//select[@id="scr1_FV3_relation"]/option[@value = "{}"]'.format(release_information_option_value), "click_element")
+        act_on_element('//select[@id="scr1_FV3_releaseinfo"]/option[@value = "{}"]'.format(release_information_option_value), "click_element")
         act_on_element('//select[@id="scr1_FV3_assignbenefits"]', "click_element")
         act_on_element('//select[@id="scr1_FV3_assignbenefits"]/option[@value = "{}"]'.format(assign_benefits_option_value), "click_element")
-        act_on_element('//input[@id="NextButton"]', 'click_element')
         time.sleep(5)   
-        #act_on_element('//input[@id="NextButton"]', 'click_element')
+        act_on_element('//input[@id="NextButton"]', 'click_element')

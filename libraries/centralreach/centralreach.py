@@ -231,19 +231,32 @@ class CentralReach():
         act_on_element('//li/a[@data-click="setYear" and text() = "{}"]'.format(claim_year_date),'click_element')
         time.sleep(3)
         try:
-            # secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
-            secondary_row = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_element')
+            secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
+            #secondary_row = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_element')
         except Exception as e:
             print(e)
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
             log_message("Secondary claim not found")   
         else:
-            print(secondary_row.text)
-            auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
-            print(auth_doc_url)
-            self.browser.go_to(auth_doc_url)
-            authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
-            print("authorization_number", authorization_number)
+            in_range = True
+            cont = 0
+            since_column_pos = 6
+            until_column_pos = 7
+            while cont < len(secondary_rows) and in_range == True:
+                row = secondary_rows[cont]
+                since_date = row.find_element_by_xpath('./td[{}]/div'.format(since_column_pos)).text
+                until_date = row.find_element_by_xpath('./td[{}]/div'.format(until_column_pos)).text
+                print("for row", cont)
+                print("since_date", since_date)
+                print("until_date", until_date)
+                cont +=1
+            raise Exception("Breakpoint")
+            # print(secondary_row.text)
+            # auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+            # print(auth_doc_url)
+            # self.browser.go_to(auth_doc_url)
+            # authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+            # print("authorization_number", authorization_number)
             #authorization_number = ""
             # for secondary_row in secondary_rows:
             #     print(secondary_row.text)
@@ -260,7 +273,47 @@ class CentralReach():
         return authorization_number
         #raise Exception("Breakpoint")
 
-    def get_payor_information(self):
+    def get_subscriber_information(self, payor_name):
+        """
+        Function that gets subscriber information from the secondary payor of the client.
+        """
         payors_patient_info_url = "https://members.centralreach.com/#contacts/details/?id={}&mode=profile&edit=payors".format(self.client_id)
         switch_window_and_go_to_url(tabs_dict["CentralReachClientInfo"], payors_patient_info_url)
-        secondary_payor_section = act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: South Carolina Medicaid"]]','find_element')
+        #secondary_payor_section = act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]'.format(payor_name),'find_element')
+        act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]//a[text() = "Details"]'.format(payor_name),'click_element')
+        act_on_element('//a[@data-toggle="tab" and child::span[text() = "Subscriber"]]','click_element')
+
+        try:
+
+            first_name = act_on_element('//input[@data-bind="value: firstName"]','find_element').get_attribute("value")
+            last_name = act_on_element('//input[@data-bind="value: lastName"]','find_element').get_attribute("value")
+            gender = act_on_element('//select[contains(@data-bind, "value: gender")]','find_element').get_attribute("value")
+            insured_id =  act_on_element('//input[@data-bind="value: policyId"]','find_element').get_attribute("value")
+            birth_date_month = act_on_element('//input[@data-bind="value: birthDateMonth"]','find_element').get_attribute("value")
+            birth_date_day = act_on_element('//input[@data-bind="value: birthDateDay"]','find_element').get_attribute("value")
+            birth_date_year = act_on_element('//input[@data-bind="value: birthDateYear"]','find_element').get_attribute("value")
+            
+        
+            act_on_element('//a[@data-toggle="tab" and child::span[text() = "Patient"]]','click_element')
+            patient_relationship_to_subscriber = act_on_element('//select[contains(@data-bind, "value: relationType")]','find_element').get_attribute("value")
+
+            relationship_to_check = "18"
+            if patient_relationship_to_subscriber.upper() == relationship_to_check.upper():
+                birthday = "{}/{}/{}".format(birth_date_month, birth_date_day, birth_date_year)
+            else:
+                birthday = ""
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_subscriber_information")
+            raise Exception("Get Subscriber Information failed.")
+        else:
+            subscriber_info = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "gender": gender,
+                "insured_id": insured_id,
+                "patient_relationship_to_subscriber": patient_relationship_to_subscriber,
+                "birthday": birthday
+            }
+            print("subscriber_info", subscriber_info)
+            time.sleep(5)
+            return subscriber_info

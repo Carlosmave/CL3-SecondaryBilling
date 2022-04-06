@@ -53,7 +53,7 @@ class Process:
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[4:]:
+        for payor_element in payor_element_list[1:]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -106,6 +106,8 @@ class Process:
                                         self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
                                     else:
                                         self.waystar.populate_authorization_number(authorization_number)
+                                        subscriber_info_dict = self.centralreach.get_subscriber_information(payor_name)
+                                        self.waystar.populate_subscriber_information(subscriber_info_dict)
                                     raise Exception("Breakpoint")
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
