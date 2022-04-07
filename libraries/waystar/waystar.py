@@ -157,7 +157,7 @@ class Waystar():
 
     def populate_subscriber_information(self, subscriber_info_dict):
         """
-        Function that populates authorization number extracted from CentralReach in the Prior Auth input
+        Function that populates subscriber information that was previously extracted from CentralReach
         """
 
         release_information_option_value = "Y"
@@ -182,3 +182,31 @@ class Waystar():
         act_on_element('//select[@id="scr1_FV3_assignbenefits"]/option[@value = "{}"]'.format(assign_benefits_option_value), "click_element")
         time.sleep(5)   
         act_on_element('//input[@id="NextButton"]', 'click_element')
+
+
+    def check_billing_information(self, mapping_file_data_dict, payor_name_cr):
+        payor = next((payor for payor in mapping_file_data_dict['Payor List'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
+        print("Payor", payor)
+        if payor:
+            individual_rendering_checked = act_on_element('//input[@id="scr2_rendering_FV_rbIndividual"]', 'find_element').get_attribute("checked")
+            if payor['Rendering Provider'].upper() == "RENDERING" and individual_rendering_checked:
+                act_on_element('//input[@id="NextButton"]', 'click_element')
+                return True
+            else:
+                return False
+        else:
+            raise Exception("Waystar payor in mapping file not found")
+                
+    def check_adjudication_information(self):
+        adjudication_date_value = act_on_element('//input[@id="scr3_FV_claimpaiddate"]', 'find_element').get_attribute("value")
+        payer_paid_amount_value = act_on_element('//input[@id="scr3_FV_payerpaid"]', 'find_element').get_attribute("value")
+        other_payer_claim_control_num_value = act_on_element('//input[@id="scr3_FV_otherPayerControlNum"]', 'find_element').get_attribute("value")
+
+        if adjudication_date_value and payer_paid_amount_value and other_payer_claim_control_num_value:
+            act_on_element('//input[@id="NextButton"]', 'click_element')
+            return True
+        else:
+            return False
+            
+
+        

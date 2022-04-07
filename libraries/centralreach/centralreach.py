@@ -202,7 +202,8 @@ class CentralReach():
           
     def get_client_id(self):
         client_name_column_pos = 9
-        self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element').get_attribute("contactid")
+        time.sleep(2)
+        self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
 
     def get_authorization_number(self):
         """
@@ -214,6 +215,9 @@ class CentralReach():
         authorization_number = ""
 
         self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
+        claim_dates = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")]/td[{}]/span[contains(@class, "inline-block")]'.format(date_column_pos),'find_elements')
+        claim_dates = [datetime.strptime(claim_date.text, "%m/%d/%y") for claim_date in claim_dates]
+        print(claim_dates)
         claim_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(date_column_pos),'find_element').text
         claim_date = datetime.strptime(claim_date, "%m/%d/%y")
         claim_month_date = int(claim_date.strftime("%m"))
@@ -238,38 +242,33 @@ class CentralReach():
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
             log_message("Secondary claim not found")   
         else:
-            in_range = True
-            cont = 0
             since_column_pos = 6
             until_column_pos = 7
-            while cont < len(secondary_rows) and in_range == True:
-                row = secondary_rows[cont]
+            valid_secondary_claims = []
+            for row in secondary_rows:
                 since_date = row.find_element_by_xpath('./td[{}]/div'.format(since_column_pos)).text
+                since_date = datetime.strptime(since_date, "%m/%d/%Y")
                 until_date = row.find_element_by_xpath('./td[{}]/div'.format(until_column_pos)).text
-                print("for row", cont)
+                until_date = datetime.strptime(until_date, "%m/%d/%Y")
                 print("since_date", since_date)
                 print("until_date", until_date)
-                cont +=1
-            raise Exception("Breakpoint")
-            # print(secondary_row.text)
-            # auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
-            # print(auth_doc_url)
-            # self.browser.go_to(auth_doc_url)
-            # authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
-            # print("authorization_number", authorization_number)
-            #authorization_number = ""
-            # for secondary_row in secondary_rows:
-            #     print(secondary_row.text)
-            #     auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
-            #     print(auth_doc_url)
-            #     self.browser.go_to(auth_doc_url)
-            #     authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
-            #     print("authorization_number", authorization_number)
-            #     authorization_number = ""
-        
-            #raise Exception("Get authorization number failed.")
+                claims_in_range = [claim_date for claim_date in claim_dates if since_date <= claim_date <= until_date]
+
+                if len(claims_in_range) == len(claim_dates):
+                    print("All claims are in valid range for this secondary.")
+                    valid_secondary_claims.append(row)
+                
+            if len(valid_secondary_claims) == 1:
+                secondary_row = valid_secondary_claims[0]
+                auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+                self.browser.go_to(auth_doc_url)
+                authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+            elif len(valid_secondary_claims) >= 2:
+                authorization_number = None
+        #authorization_number = ""
         log_message("Finish - Get authorization number")
-        time.sleep(5)
+        #time.sleep(5)
+        print("authorization_number", authorization_number)
         return authorization_number
         #raise Exception("Breakpoint")
 

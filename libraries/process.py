@@ -1,3 +1,4 @@
+from idna import valid_label_length
 from libraries.common import act_on_element, log_message, capture_page_screenshot, browser, switch_window_and_go_to_url
 from libraries.sharepoint.sharepoint import SharePoint
 from libraries.centralreach.centralreach import CentralReach
@@ -45,6 +46,8 @@ class Process:
         This is where the main process takes place, function, depends on your process, can contain:
           - splitted into macro steps that go one by one
           - contains the main process loop
+
+        --------------------- THIS IS NOT THE FINAL PROCESS VERSION. IT WILL CHANGE
         """
         log_message("Macro Step 2: Prepare for Process")
         mapping_file_data_dict = self.waystar.read_mapping_file()
@@ -53,7 +56,7 @@ class Process:
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[1:]:
+        for payor_element in payor_element_list[6:]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -99,7 +102,12 @@ class Process:
                                     # time.sleep(4)
                                     self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
                                     authorization_number = self.centralreach.get_authorization_number()
-                                    if authorization_number == "":
+                                    if authorization_number is None:
+                                        print("Split Auth")
+                                        labels_to_apply = ["TA: Split Secondary Auth"]
+                                        labels_to_remove = []
+                                        self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                    elif authorization_number == "":
                                         print("No Secondary auth")
                                         labels_to_apply = ["TA: No Secondary Auth"]
                                         labels_to_remove = []
@@ -108,6 +116,21 @@ class Process:
                                         self.waystar.populate_authorization_number(authorization_number)
                                         subscriber_info_dict = self.centralreach.get_subscriber_information(payor_name)
                                         self.waystar.populate_subscriber_information(subscriber_info_dict)
+                                        valid_rendering = self.waystar.check_billing_information(mapping_file_data_dict, payor_name)
+                                        if valid_rendering:
+                                            print("Valid rendering")
+                                            valid_adjudication = self.waystar.check_adjudication_information()
+                                            if valid_adjudication:
+                                                print("valid adjucation")
+                                            else:
+                                                labels_to_apply = ["TA: Multiple Primary Remits"]
+                                                labels_to_remove = []
+                                                self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                        else:
+                                            labels_to_apply = ["TA: Rendering Provider"]
+                                            labels_to_remove = []
+                                            self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                                        
                                     raise Exception("Breakpoint")
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
