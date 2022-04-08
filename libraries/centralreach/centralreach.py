@@ -148,6 +148,7 @@ class CentralReach():
         try:
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
             self.get_client_id()
+            self.get_provider_label()
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_payor")
             #log_message("Get claim payor failed.")
@@ -204,7 +205,12 @@ class CentralReach():
         client_name_column_pos = 9
         time.sleep(2)
         self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
-
+    
+    def get_provider_label(self):
+        provider_column_pos = 11
+        act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(provider_column_pos),'click_element', 10)
+        self.provider_label = act_on_element('//span[@class="tag-name" and contains(text(), "Certification")]', 'find_element').text
+    
     def get_authorization_number(self):
         """
         Function that gets the authorization number of the secondary Claim.

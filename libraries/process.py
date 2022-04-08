@@ -56,7 +56,7 @@ class Process:
         self.centralreach.filter_claims_list()
         self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[6:]:
+        for payor_element in payor_element_list[2:]:
             payor_name = payor_element.find_element_by_xpath('./span').text
             payor_name = payor_name.replace(">", "").strip()
             log_message("Processing claims for payor {}".format(payor_name))
@@ -122,6 +122,7 @@ class Process:
                                             valid_adjudication = self.waystar.check_adjudication_information()
                                             if valid_adjudication:
                                                 print("valid adjucation")
+                                                valid_rendering = self.waystar.check_modifiers_information(mapping_file_data_dict, payor_name, self.centralreach.provider_label)                          
                                             else:
                                                 labels_to_apply = ["TA: Multiple Primary Remits"]
                                                 labels_to_remove = []

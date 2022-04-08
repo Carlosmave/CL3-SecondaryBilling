@@ -207,6 +207,44 @@ class Waystar():
             return True
         else:
             return False
-            
 
+    def check_modifiers_information(self, mapping_file_data_dict, payor_name_cr, provider_label):
+        payor = next((payor for payor in mapping_file_data_dict['Payor List'] if payor_name_cr.upper() == payor['CentralReach Payor Name'].upper()), None)
+        print("Payor", payor)
+        if payor:
+            if payor['MODIFIER'].upper() == "YES":
+                number_of_modifiers = payor['# OF MODIFIERS']
+
+                place_of_service_column_pos = 4
+                procedure_code_column_pos = 5
+                modifiers_column_pos = 6
+                service_rows = act_on_element('//table[@id="scr4_FV1_GV"]//tr[descendant::a[text() = "Delete"]]', 'find_elements')
+                for service_row in service_rows:
+                    print(service_row.text)
+                    procedure_code = service_row.find_element_by_xpath('./td[{}]//input'.format(procedure_code_column_pos)).get_attribute("value")
+                    
+                    for modifier_number in number_of_modifiers:
+                        modifier = "MODIFIER {}".format(modifier_number)
+                        if payor[modifier].upper() == "PROVIDER":
+                            provider_modifier = next((provider_mod for provider_mod in mapping_file_data_dict['Provider Modifier'] if payor_name_cr.upper() == provider_mod['CentralReach Payor Name'].upper() and provider_label.upper() == provider_mod['Provider Label'].upper() and procedure_code.upper() == str(provider_mod['Billing Code']).upper()), None)
+                            print(provider_modifier)
+                            if provider_modifier:
+                                modifier_input = service_row.find_element_by_xpath('./td[{}]//input[{}]'.format(modifiers_column_pos, modifier_number))
+                                self.browser.input_text_when_element_is_visible(modifier_input, provider_modifier["PROVIDER {}".format(modifier)])
+                        elif payor[modifier].upper() == "PLACE OF SERVICE":
+                            place_of_service_value = service_row.find_element_by_xpath('./td[{}]//input'.format(place_of_service_column_pos)).get_attribute("value")
+                            location_modifier = next((location_mod for location_mod in mapping_file_data_dict['Location Modifier'] if payor_name_cr.upper() == location_mod['Payor'].upper() and place_of_service_value.upper() == location_mod['Location'].upper()), None)
+                            print(location_modifier)
+                            if location_modifier:
+                                modifier_input = service_row.find_element_by_xpath('./td[{}]//input[{}]'.format(modifiers_column_pos, modifier_number))
+                                self.browser.input_text_when_element_is_visible(modifier_input, location_modifier[modifier.title()])
+                
+                # act_on_element('//input[@id="NextButton"]', 'click_element')
+                # return True
+            else:
+                print("No modifier")
+                return False
+        else:
+            raise Exception("Waystar payor in mapping file not found")
+        time.sleep(5)
         
