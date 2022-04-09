@@ -146,6 +146,7 @@ class CentralReach():
         log_message("Start - Get claim payor")
         payor_column_pos = 10
         try:
+            time.sleep(2)
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
             self.get_client_id()
             self.get_provider_label()
@@ -203,7 +204,6 @@ class CentralReach():
           
     def get_client_id(self):
         client_name_column_pos = 9
-        time.sleep(2)
         self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
     
     def get_provider_label(self):
@@ -321,4 +321,5 @@ class CentralReach():
             }
             print("subscriber_info", subscriber_info)
             time.sleep(5)
+            self.browser.execute_javascript("window.close()")
             return subscriber_info

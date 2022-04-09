@@ -131,8 +131,7 @@ class Process:
                                             labels_to_apply = ["TA: Rendering Provider"]
                                             labels_to_remove = []
                                             self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                        
-                                    raise Exception("Breakpoint")
+                                    #raise Exception("Breakpoint")
                         time.sleep(3)
                 switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
             else:
