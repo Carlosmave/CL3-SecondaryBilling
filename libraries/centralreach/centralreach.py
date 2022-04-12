@@ -3,9 +3,9 @@ from libraries.common import (
     log_message,
     act_on_element,
     capture_page_screenshot,
-    switch_window_and_go_to_url
+    switch_window
 )
-from config import OUTPUT_FOLDER, tabs_dict
+from config import OUTPUT_FOLDER, RunMode, tabs_dict
 from datetime import datetime
 
 class CentralReach():
@@ -15,9 +15,19 @@ class CentralReach():
         self.centralreach_url = credentials["url"]
         self.centralreach_login = credentials["login"]
         self.centralreach_password = credentials["password"]
+        self.start_date = "03/01/2022"
+        self.end_date = "03/27/2022"
         self.base_filtered_claims_url = ""
         self.full_filtered_claims_url = ""
+        self.payor_name = ""
         self.client_id = ""
+        self.claim_id = ""
+        self.provider_label = ""
+        self.authorization_number = ""
+        self.sc_medicaid_cr_name = "S: South Carolina Medicaid"
+        self.labels_dict = {}
+        self.subscriber_info_dict = {}
+
 
 
     def login(self):
@@ -26,9 +36,9 @@ class CentralReach():
         """
         try:
             log_message("Start - Login CentralReach")
-            self.browser.go_to(self.centralreach_url)
-            self.input_credentials()
             tabs_dict["CentralReachMain"] = len(tabs_dict)
+            switch_window("CentralReachMain", self.centralreach_url)
+            self.input_credentials()
             log_message("Finish - Login CentralReach")
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Login")
@@ -50,14 +60,13 @@ class CentralReach():
         Filters claims in the Billing menu with two filters activated ('TA-Secondary' filter and date range).
         """
         log_message("Start - Filter Claims List")
-        start_date = "03/01/2022"
-        end_date = "03/27/2022"
-        start_date = datetime.strptime(start_date, "%m/%d/%Y").strftime("%Y-%m-%d")
-        end_date = datetime.strptime(end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+        start_date_tmp = datetime.strptime(self.start_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+        end_date_tmp = datetime.strptime(self.end_date, "%m/%d/%Y").strftime("%Y-%m-%d")
 
-        self.base_filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}".format(start_date, end_date)
+        self.base_filtered_claims_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}".format(start_date_tmp, end_date_tmp)
         self.full_filtered_claims_url = "{}&billingLabelIdIncluded=23593&billStatus=4".format(self.base_filtered_claims_url)
-        switch_window_and_go_to_url(tabs_dict["CentralReachMain"], self.full_filtered_claims_url)
+        switch_window("CentralReachMain", self.full_filtered_claims_url)
+        self.open_extra_centralreach_tabs()
         log_message("End - Filter Claims List")
 
     def open_extra_centralreach_tabs(self):
@@ -65,24 +74,27 @@ class CentralReach():
         Function that opens two tabs 
         CentralReachClaim1: claims list only with date range filter and later used for searching by claim id.
         CentralReachClaim2: shows each billing entry details
+        CentralReachClientInfo: client details such as auths and payor information
         """
         log_message("Start - Open Extra CentralReach tabs")
-        self.browser.execute_javascript("window.open()")
-        tabs_dict["CentralReachClaim1"] = len(tabs_dict)
-        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], self.base_filtered_claims_url)
-        
-        self.browser.execute_javascript("window.open()")
-        tabs_dict["CentralReachClaim2"] = len(tabs_dict)
 
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+        new_tabs_to_open_list = {
+            "CentralReachClaim1": self.base_filtered_claims_url,
+            "CentralReachClaim2": "",
+            "CentralReachClientInfo": ""
+        }
+        for new_tab_name, new_tab_url in new_tabs_to_open_list.items():
+            switch_window(new_tab_name, new_tab_url)
+
         log_message("Finish - Open Extra CentralReach tabs")
         
     def get_payors_list(self):
         """
         Function that gets the payor list from the filtered claims.
         """
+        log_message("Start - Get Payors List")
         try:
-            log_message("Start - Get payors list")
+            switch_window("CentralReachMain")
             act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(normalize-space(), "Payor")]/a', 'click_element')
             payor_element_list = act_on_element('//div[@id="insurancesFilterList"]//li/a[@class="filter-id" and not(child::span[text() = " > Medicaid"])]', "find_elements")
         except Exception as e:
@@ -91,18 +103,31 @@ class CentralReach():
         log_message("Finish - Get payors list")
         return payor_element_list
 
-    def check_excluded_payors(self, payor_name):
+    def get_payor_name_from_element(self, payor_element):
         """
-        Function that checks if the payor is in the excluded list.
+        Function that gets the name of the current payor element in the loop
+        and also checks if it's in the excluded list.
         """
-        excluded_payors = ["Florida Medicaid", "Kentucky Medicaid FFS", "Kentucky SLP", "Tricare"]
-        return payor_name in excluded_payors
+        try:
+            switch_window("CentralReachMain")
+            payor_name = payor_element.find_element_by_xpath('./span').text
+            payor_name = payor_name.replace(">", "").strip()
+            excluded_payors = ["Florida Medicaid", "Kentucky Medicaid FFS", "Kentucky SLP", "Tricare"]
+            if payor_name in excluded_payors:
+                log_message("{} is in the excluded payor list. Skipping".format(payor_name))
+                self.payor_name = None
+            else:
+                act_on_element(payor_element, "click_element")
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_payor_name_from_element")
+            raise Exception("Get payor name from element failed.")
 
     def get_claims_result(self):
         """Function that gets the claims from list with a specific payor"""
         log_message("Start - Get Claims Result")
         try:
-            self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+            switch_window("CentralReachMain")
+            time.sleep(1)
             rows = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")]', "find_elements")
         except Exception as e:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_claims_result")
@@ -113,128 +138,56 @@ class CentralReach():
         log_message("Finish - Get Claims Result")
         return rows
 
-    def get_claim_id(self, claim_result):
+    def get_claim_information(self, claim_result):
         """
-        Function that goes to the billing entry details, gets the claim id and searchs it in a new tab
+        Function that gets the claim id and searchs it in a new tab to extract the full details
         """
-        log_message("Start - Get claim id")
+        log_message("Start - Get Claim Information")
+        claim_id_column_pos = 3
+        payor_column_pos = 10
+        client_name_column_pos = 9
+        provider_column_pos = 11
         try:
-            self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachMain"]])
+            switch_window("CentralReachMain")
             entry_id = claim_result.get_attribute("id")
             entry_id = entry_id.split("billing-grid-row-")[1].strip()
             billing_entry_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
-            switch_window_and_go_to_url(tabs_dict["CentralReachClaim2"], billing_entry_url)
-            print(tabs_dict)
+            switch_window("CentralReachClaim2", billing_entry_url)
 
-            claim_id_column_pos = 3
-            claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(claim_id_column_pos), "find_element").text
-        except Exception as e:
-            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_id")
-            #log_message("Get claim id failed.")
-            raise Exception("Get claim id failed.")
+            self.claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(claim_id_column_pos), "find_element").text
+            claim_search_url = "{}&claimId={}".format(self.base_filtered_claims_url, self.claim_id)
+            switch_window("CentralReachClaim1", claim_search_url)
 
-        claim_search_url = "{}&claimId={}".format(self.base_filtered_claims_url, claim_id)
-        switch_window_and_go_to_url(tabs_dict["CentralReachClaim1"], claim_search_url)
-        
-        log_message("Finish - Get claim id")
-        return claim_id
-
-    def get_claim_payor(self):
-        """
-        Function that gets the payor of the claim.
-        """
-        log_message("Start - Get claim payor")
-        payor_column_pos = 10
-        try:
-            time.sleep(2)
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
-            self.get_client_id()
-            self.get_provider_label()
-        except Exception as e:
-            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_payor")
-            #log_message("Get claim payor failed.")
-            raise Exception("Get claim payor failed.")
-        log_message("Finish - Get claim payor")
-        return claim_payor
-
-    def apply_and_remove_labels_to_claims(self, labels_to_apply, labels_to_remove):
-        """
-        Function that bulk applies and removes certain labels to claims.
-        """
-        log_message("Start - Apply and remove labels to claim")
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
-        time.sleep(2)
-        try:
-            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(@class, "check")]/input[@type = "checkbox"]','click_element')
-            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
-            
-            for label in labels_to_apply:
-                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[@class="select2-input select2-default"]', label)
-                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
-            
-            for label in labels_to_remove:
-                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Remove Labels"]//input[@class="select2-input select2-default"]', label)
-                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
-            
-            time.sleep(2)
-            # act_on_element('//button[text() = "Apply Label Changes"]','click_element')
-            act_on_element('//div[@class="modal in" and descendant::h2[contains(text(), "Bulk Apply Labels")]]//button[text() = "Close"]','click_element')
+            self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
     
+            act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(provider_column_pos),'click_element', 10)
+            self.provider_label = act_on_element('//span[@class="tag-name" and contains(text(), "Certification")]', 'find_element').text
+        except:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_claim_information")
+            raise Exception("Get Claim information failed.")
         
-            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
-            act_on_element('//input[@class = "form-control hasDatepicker"]','find_element', 10)
-            todays_date = datetime.today().strftime("%m/%d/%Y")
-            self.browser.input_text_when_element_is_visible('//input[@class = "form-control hasDatepicker"]', todays_date)
-            
-            act_on_element('//select[@name="payment-type"]', "click_element")
-            act_on_element('//select[@name="payment-type"]/option[text() = "Activity"]', "click_element")
-            reference_txt = ", ".join(labels_to_apply)
-            self.browser.input_text_when_element_is_visible('//input[contains(@data-bind, "reference")]', reference_txt)
-            act_on_element('//select[@class = "form-control required add-create-payor"]', "click_element")
-            act_on_element('//select[@class = "form-control required add-create-payor"]/option[contains(text(), "Secondary:")]', "click_element")
-            time.sleep(8)
-            #act_on_element('//button[text() = "Apply Payments"]','click_element')
-            act_on_element('//div[@class="bulk-payments-container"]//button[text() = "Cancel"]','click_element')
-        except Exception as e:
-            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Apply_and_remove_labels_to_claim")
-            #log_message("Apply and remove labels to claims failed.")
-            raise Exception("Apply and remove labels to claims failed.")
-    
-        log_message("Finish - Apply and remove labels to claims.")
-          
-    def get_client_id(self):
-        client_name_column_pos = 9
-        self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
-    
-    def get_provider_label(self):
-        provider_column_pos = 11
-        act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(provider_column_pos),'click_element', 10)
-        self.provider_label = act_on_element('//span[@class="tag-name" and contains(text(), "Certification")]', 'find_element').text
-    
+        log_message("Finish - Get Claim Information")
+        return self.sc_medicaid_cr_name.lower() in claim_payor.lower()
+         
+
     def get_authorization_number(self):
         """
         Function that gets the authorization number of the secondary Claim.
         """
-        log_message("Start - Get authorization number")
+        log_message("Start - Get Authorization Number on CentralReach")
         date_column_pos = 7
         code_column_pos = 5
-        authorization_number = ""
 
-        self.browser.switch_window(locator=self.browser.get_window_handles()[tabs_dict["CentralReachClaim1"]])
+        switch_window("CentralReachClaim1")
         claim_dates = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")]/td[{}]/span[contains(@class, "inline-block")]'.format(date_column_pos),'find_elements')
         claim_dates = [datetime.strptime(claim_date.text, "%m/%d/%y") for claim_date in claim_dates]
-        print(claim_dates)
-        claim_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(date_column_pos),'find_element').text
-        claim_date = datetime.strptime(claim_date, "%m/%d/%y")
-        claim_month_date = int(claim_date.strftime("%m"))
-        claim_year_date = claim_date.strftime("%Y")
-        print("claim_month_date", claim_month_date)
-        print("claim_year_date", claim_year_date)
+        first_claim_date = claim_dates[0]
+        claim_month_date = int(first_claim_date.strftime("%m"))
+        claim_year_date = first_claim_date.strftime("%Y")
         auth_url = "https://members.centralreach.com/#billingmanager/authorizations/?clientId={}".format(self.client_id)
         
-        self.browser.execute_javascript("window.open()")
-        tabs_dict["CentralReachClientInfo"] = len(tabs_dict)
-        switch_window_and_go_to_url(tabs_dict["CentralReachClientInfo"], auth_url)
+        switch_window("CentralReachClientInfo", auth_url)
         act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element')
         act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
         act_on_element('//button[child::span[@data-bind="text: year"]]','click_element')
@@ -242,9 +195,7 @@ class CentralReach():
         time.sleep(3)
         try:
             secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
-            #secondary_row = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_element')
-        except Exception as e:
-            print(e)
+        except:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_authorization_number")
             log_message("Secondary claim not found")   
         else:
@@ -256,40 +207,53 @@ class CentralReach():
                 since_date = datetime.strptime(since_date, "%m/%d/%Y")
                 until_date = row.find_element_by_xpath('./td[{}]/div'.format(until_column_pos)).text
                 until_date = datetime.strptime(until_date, "%m/%d/%Y")
-                print("since_date", since_date)
-                print("until_date", until_date)
                 claims_in_range = [claim_date for claim_date in claim_dates if since_date <= claim_date <= until_date]
 
                 if len(claims_in_range) == len(claim_dates):
-                    print("All claims are in valid range for this secondary.")
+                    log_message("All claims are in valid range for this secondary.")
                     valid_secondary_claims.append(row)
                 
             if len(valid_secondary_claims) == 1:
                 secondary_row = valid_secondary_claims[0]
                 auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
                 self.browser.go_to(auth_doc_url)
-                authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
+                self.authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]','find_element').get_attribute("value")
             elif len(valid_secondary_claims) >= 2:
-                authorization_number = None
-        #authorization_number = ""
-        log_message("Finish - Get authorization number")
-        #time.sleep(5)
-        print("authorization_number", authorization_number)
-        return authorization_number
-        #raise Exception("Breakpoint")
+                self.authorization_number = None
+        time.sleep(5)
+        log_message("Finish - Get authorization number in CentralReach")
+        return self.check_if_valid_auth_number()
 
-    def get_subscriber_information(self, payor_name):
+
+    def check_if_valid_auth_number(self):
+        """
+        Function that checks if the authorization number is valid. Otherwise, apply labels
+        """
+        valid_auth_number = True
+        if self.authorization_number is None:
+            self.labels_dict['labels_to_add'].append("TA: Split Secondary Auth")
+            self.apply_and_remove_labels_to_claims()
+            valid_auth_number = False
+        elif self.authorization_number == "":
+            self.labels_dict['labels_to_add'].append("TA: No Secondary Auth")
+            self.apply_and_remove_labels_to_claims()
+            valid_auth_number = False
+        else:
+            self.centralreach.get_subscriber_information()
+
+        return valid_auth_number
+        
+    def get_subscriber_information(self):
         """
         Function that gets subscriber information from the secondary payor of the client.
         """
+        log_message("Start - Get Subscriber Information on CentralReach")
+
         payors_patient_info_url = "https://members.centralreach.com/#contacts/details/?id={}&mode=profile&edit=payors".format(self.client_id)
-        switch_window_and_go_to_url(tabs_dict["CentralReachClientInfo"], payors_patient_info_url)
-        #secondary_payor_section = act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]'.format(payor_name),'find_element')
-        act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]//a[text() = "Details"]'.format(payor_name),'click_element')
+        switch_window("CentralReachClientInfo", payors_patient_info_url)
+        act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]//a[text() = "Details"]'.format(self.payor_name),'click_element')
         act_on_element('//a[@data-toggle="tab" and child::span[text() = "Subscriber"]]','click_element')
-
         try:
-
             first_name = act_on_element('//input[@data-bind="value: firstName"]','find_element').get_attribute("value")
             last_name = act_on_element('//input[@data-bind="value: lastName"]','find_element').get_attribute("value")
             gender = act_on_element('//select[contains(@data-bind, "value: gender")]','find_element').get_attribute("value")
@@ -297,7 +261,6 @@ class CentralReach():
             birth_date_month = act_on_element('//input[@data-bind="value: birthDateMonth"]','find_element').get_attribute("value")
             birth_date_day = act_on_element('//input[@data-bind="value: birthDateDay"]','find_element').get_attribute("value")
             birth_date_year = act_on_element('//input[@data-bind="value: birthDateYear"]','find_element').get_attribute("value")
-            
         
             act_on_element('//a[@data-toggle="tab" and child::span[text() = "Patient"]]','click_element')
             patient_relationship_to_subscriber = act_on_element('//select[contains(@data-bind, "value: relationType")]','find_element').get_attribute("value")
@@ -307,19 +270,68 @@ class CentralReach():
                 birthday = "{}/{}/{}".format(birth_date_month, birth_date_day, birth_date_year)
             else:
                 birthday = ""
-        except Exception as e:
+        except:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_get_subscriber_information")
             raise Exception("Get Subscriber Information failed.")
         else:
-            subscriber_info = {
-                "first_name": first_name,
-                "last_name": last_name,
-                "gender": gender,
-                "insured_id": insured_id,
-                "patient_relationship_to_subscriber": patient_relationship_to_subscriber,
-                "birthday": birthday
-            }
-            print("subscriber_info", subscriber_info)
+            self.subscriber_info_dict['first_name'] = first_name
+            self.subscriber_info_dict['last_name'] = last_name
+            self.subscriber_info_dict['gender'] = gender
+            self.subscriber_info_dict['insured_id'] = insured_id
+            self.subscriber_info_dict['patient_relationship_to_subscriber'] = patient_relationship_to_subscriber
+            self.subscriber_info_dict['birthday'] = birthday
+
+            print("subscriber_info", self.self_subscriber_info_dict)
+            log_message("Finish - Get Subscriber Information on CentralReach")
+
             time.sleep(5)
-            self.browser.execute_javascript("window.close()")
-            return subscriber_info
+
+    
+    def apply_and_remove_labels_to_claims(self):
+        """
+        Function that bulk applies and removes certain labels to claims.
+        """
+        log_message("Start - Apply and Remove Labels to Claims")
+        switch_window("CentralReachClaim1")
+        time.sleep(2)
+        labels_to_add = self.labels_dict.get('labels_to_add', [])
+        labels_to_remove = self.labels_dict.get('labels_to_remove', [])
+        try:
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]/tr[last()]/th[contains(@class, "check")]/input[@type = "checkbox"]','click_element')
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
+            
+            for label in labels_to_add:
+                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[@class="select2-input select2-default"]', label)
+                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
+            
+            for label in labels_to_remove:
+                self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Remove Labels"]//input[@class="select2-input select2-default"]', label)
+                act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
+            
+            time.sleep(2)
+            if RunMode.save_changes:
+                act_on_element('//button[text() = "Apply Label Changes"]','click_element')
+            else:
+                act_on_element('//div[@class="modal in" and descendant::h2[contains(text(), "Bulk Apply Labels")]]//button[text() = "Close"]','click_element')
+    
+            act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
+            act_on_element('//input[@class = "form-control hasDatepicker"]','find_element', 10)
+            todays_date = datetime.today().strftime("%m/%d/%Y")
+            self.browser.input_text_when_element_is_visible('//input[@class = "form-control hasDatepicker"]', todays_date)
+            
+            act_on_element('//select[@name="payment-type"]', "click_element")
+            act_on_element('//select[@name="payment-type"]/option[text() = "Activity"]', "click_element")
+            reference_txt = ", ".join(labels_to_add)
+            self.browser.input_text_when_element_is_visible('//input[contains(@data-bind, "reference")]', reference_txt)
+            act_on_element('//select[@class = "form-control required add-create-payor"]', "click_element")
+            act_on_element('//select[@class = "form-control required add-create-payor"]/option[contains(text(), "Secondary:")]', "click_element")
+            time.sleep(8) #delete later
+            if RunMode.save_changes:
+                act_on_element('//button[text() = "Apply Payments"]','click_element')
+            else:
+                act_on_element('//div[@class="bulk-payments-container"]//button[text() = "Cancel"]','click_element')
+        except Exception as e:
+            capture_page_screenshot(OUTPUT_FOLDER, "Exception_centralreach_Apply_and_remove_labels_to_claim")
+            raise Exception("Apply and remove labels to claims failed.")
+    
+        log_message("Finish - Apply and Remove Labels to Claims")

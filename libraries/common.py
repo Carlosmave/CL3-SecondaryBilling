@@ -5,7 +5,7 @@ from RPA.Robocorp.Vault import Vault
 from RPA.Browser.Selenium import Selenium
 from RPA.FileSystem import FileSystem
 from ta_bitwarden_cli.ta_bitwarden_cli import Bitwarden
-from config import OUTPUT_FOLDER
+from config import OUTPUT_FOLDER, tabs_dict
 from RPA.Excel.Files import Files
 
 
@@ -141,8 +141,25 @@ def check_file_download_complete(file_extension: str, time_range: int = 10, fold
     else:
         return downloaded_files
 
+def switch_window(tab_name: str = "", url: str = ""):
+    """Function that switches to the desired tab and goes to an url if needed.
+       If the tab name exists, just get the index. Otherwise, creates a new tab.
+    """
+    
+    if tab_name == "":
+        tab_index = 0
+    elif not tab_name in tabs_dict:
+        browser.execute_javascript("window.open()")
+        tabs_dict[tab_name] = len(tabs_dict)
+    tab_index = tabs_dict[tab_name]
+    print("handles", browser.get_window_handles())
+    browser.switch_window(locator=browser.get_window_handles()[tab_index])
 
-def switch_window_and_go_to_url(tab: int = 0, url: str = ""):
-    """Function that switches to the desired tab and goes to the url"""
-    browser.switch_window(locator=browser.get_window_handles()[tab])
-    browser.go_to(url)
+    print("Registered tabs", tabs_dict)
+    if url != "":
+        browser.go_to(url)
+
+def close_window(tab_name):
+    browser.execute_javascript("window.close()")
+    tabs_dict.pop(tab_name, None)
+

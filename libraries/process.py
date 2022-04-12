@@ -1,5 +1,4 @@
-from idna import valid_label_length
-from libraries.common import act_on_element, log_message, capture_page_screenshot, browser, switch_window_and_go_to_url
+from libraries.common import log_message, capture_page_screenshot, browser
 from libraries.sharepoint.sharepoint import SharePoint
 from libraries.centralreach.centralreach import CentralReach
 from libraries.waystar.waystar import Waystar
@@ -49,95 +48,34 @@ class Process:
 
         --------------------- THIS IS NOT THE FINAL PROCESS VERSION. IT WILL CHANGE
         """
-        log_message("Macro Step 2: Prepare for Process")
+        log_message("--------------- [Macro Step 2: Prepare for Process] ---------------")
         mapping_file_data_dict = self.waystar.read_mapping_file()
-        print(mapping_file_data_dict)
-        log_message("Macro Step 3: Prepare to Process Claims")
+        log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
         self.centralreach.filter_claims_list()
-        self.centralreach.open_extra_centralreach_tabs()
         payor_element_list = self.centralreach.get_payors_list()
         for payor_element in payor_element_list[2:]:
-            payor_name = payor_element.find_element_by_xpath('./span').text
-            payor_name = payor_name.replace(">", "").strip()
-            log_message("Processing claims for payor {}".format(payor_name))
-            is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
-            if not is_excluded_payor:
-                act_on_element(payor_element, "click_element")
-                time.sleep(1)
+            self.centralreach.get_payor_name_from_element(payor_element)
+            if self.centralreach.payor_name:
+                log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
                 claims_result_list = self.centralreach.get_claims_result()
-                # time.sleep(5)
-                print("len claims_result_list", len(claims_result_list))
-                for claims_row in claims_result_list:
-                    claim_id = self.centralreach.get_claim_id(claims_row)
-                    log_message("Processing claim with id {}".format(claim_id))
-                    claim_payor = self.centralreach.get_claim_payor()
-                    log_message("The payor of the claim is {}".format(claim_payor))
-                    sc_medicaid_cr_name = "s: south carolina medicaid"
-                    if sc_medicaid_cr_name in claim_payor.lower():
+                for claim_row in claims_result_list:
+                    is_sc_medicaid = self.centralreach.get_claim_information(claim_row)
+                    log_message("***Processing claim with id {}****".format(self.centralreach.claim_id))
+                    if is_sc_medicaid:
                         print("SC Medicaid")
                     else:
-                        log_message("Macro Step 4: Process Claims in Waystar")
-                        self.waystar.filter_claim_by_id(claim_id)
-                        has_secondary_claim = self.waystar.check_claim_seq()
-                        if has_secondary_claim:
-                            log_message("Claim has a secondary in Waystar.")
-                            labels_to_apply = ["AR:Secondary Billed"]
-                            labels_to_remove = ["AR:Need to Bill Secondary"]
-                            #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
+                        log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
+                        self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id)
+                        if self.centralreach.labels_dict:
+                            self.centralreach.apply_and_remove_labels_to_claims()
                         else:
-                            log_message("Claim has not a secondary in Waystar.")
-                            apply_exclusion_label = self.waystar.check_payer_to_exclude_waystar()
-                            if  apply_exclusion_label:
-                                labels_to_apply = ["TA: Payor Exclusion"]
-                                labels_to_remove = []
-                                #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                            else:
-                                has_remit = self.waystar.check_if_has_remit()
-                                if not has_remit:
-                                    labels_to_apply = ["TA: No Primary Remit"]
-                                    labels_to_remove = []
-                                    #self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                else:
-                                    log_message("Has remit. Work In Progress")
-                                    # time.sleep(4)
-                                    self.waystar.populate_payer_information(mapping_file_data_dict, payor_name)
-                                    authorization_number = self.centralreach.get_authorization_number()
-                                    if authorization_number is None:
-                                        print("Split Auth")
-                                        labels_to_apply = ["TA: Split Secondary Auth"]
-                                        labels_to_remove = []
-                                        self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                    elif authorization_number == "":
-                                        print("No Secondary auth")
-                                        labels_to_apply = ["TA: No Secondary Auth"]
-                                        labels_to_remove = []
-                                        self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                    else:
-                                        self.waystar.populate_authorization_number(authorization_number)
-                                        subscriber_info_dict = self.centralreach.get_subscriber_information(payor_name)
-                                        self.waystar.populate_subscriber_information(subscriber_info_dict)
-                                        valid_rendering = self.waystar.check_billing_information(mapping_file_data_dict, payor_name)
-                                        if valid_rendering:
-                                            print("Valid rendering")
-                                            valid_adjudication = self.waystar.check_adjudication_information()
-                                            if valid_adjudication:
-                                                print("valid adjucation")
-                                                valid_rendering = self.waystar.check_modifiers_information(mapping_file_data_dict, payor_name, self.centralreach.provider_label)                          
-                                            else:
-                                                labels_to_apply = ["TA: Multiple Primary Remits"]
-                                                labels_to_remove = []
-                                                self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                        else:
-                                            labels_to_apply = ["TA: Rendering Provider"]
-                                            labels_to_remove = []
-                                            self.centralreach.apply_and_remove_labels_to_claims(labels_to_apply, labels_to_remove)
-                                    #raise Exception("Breakpoint")
-                        time.sleep(3)
-                switch_window_and_go_to_url(url = self.centralreach.full_filtered_claims_url)
-            else:
-                log_message("{} is a excluded payor. Skipping.".format(payor_name))
-            time.sleep(3)                    
-        
+                            is_valid_auth_number = self.centralreach.get_authorization_number()
+                            if is_valid_auth_number:
+                                self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
+                                self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                self.centralreach.apply_and_remove_labels_to_claims()
+                  
 
     def finish(self):
         """

@@ -14,11 +14,11 @@ class RunMode:
     #Add flags to enable/disable/simulate steps of the process.
     RUN_MODE = "development" if (len(sys.argv) > 1 and sys.argv[1].lower() == "local") or (os.environ.get("RUN_MODE", None) == "development") else "production"
     if RUN_MODE != "development":
-        send_email = True
+        save_changes = True
         upload_files = True
         close_tasks = True
     else:
-        send_email = False
+        save_changes = False
         upload_files = False
         close_tasks = False
 
