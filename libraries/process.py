@@ -28,9 +28,9 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
-        # sharepoint.download_file()
-        
+        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        sharepoint.download_file()
+
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
         self.centralreach = centralreach
@@ -65,15 +65,14 @@ class Process:
                         print("SC Medicaid")
                     else:
                         log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
-                        self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id)
-                        if self.centralreach.labels_dict:
-                            self.centralreach.apply_and_remove_labels_to_claims()
-                        else:
+                        self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
+                        applied_labels = self.centralreach.apply_and_remove_labels_to_claims()
+                        if not applied_labels:
                             is_valid_auth_number = self.centralreach.get_authorization_number()
                             if is_valid_auth_number:
                                 self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
                                 self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
-                                self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
                                 self.centralreach.apply_and_remove_labels_to_claims()
                   
 

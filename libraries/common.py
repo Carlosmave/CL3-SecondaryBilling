@@ -141,7 +141,7 @@ def check_file_download_complete(file_extension: str, time_range: int = 10, fold
     else:
         return downloaded_files
 
-def switch_window(tab_name: str = "", url: str = ""):
+def switch_window(tab_name: str = "", url: str = "", open_new_window: bool = True):
     """Function that switches to the desired tab and goes to an url if needed.
        If the tab name exists, just get the index. Otherwise, creates a new tab.
     """
@@ -149,7 +149,8 @@ def switch_window(tab_name: str = "", url: str = ""):
     if tab_name == "":
         tab_index = 0
     elif not tab_name in tabs_dict:
-        browser.execute_javascript("window.open()")
+        if open_new_window:
+            browser.execute_javascript("window.open()")
         tabs_dict[tab_name] = len(tabs_dict)
     tab_index = tabs_dict[tab_name]
     print("handles", browser.get_window_handles())
@@ -159,7 +160,7 @@ def switch_window(tab_name: str = "", url: str = ""):
     if url != "":
         browser.go_to(url)
 
-def close_window(tab_name):
+def close_window(tab_name: str):
     browser.execute_javascript("window.close()")
     tabs_dict.pop(tab_name, None)
 

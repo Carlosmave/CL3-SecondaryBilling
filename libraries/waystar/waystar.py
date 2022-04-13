@@ -2,6 +2,7 @@
 from libraries.common import act_on_element, capture_page_screenshot, log_message, switch_window, close_window, files
 from config import OUTPUT_FOLDER, RunMode
 import time
+from copy import deepcopy
 
 class Waystar():
 
@@ -75,14 +76,14 @@ class Waystar():
         log_message("Finish - Read Mapping File")
         return mapping_file_data
 
-    def determine_if_valid_secondary_claim(self, claim_id: str):
+    def determine_if_valid_secondary_claim(self, claim_id: str, labels_dict: dict):
         """
         Function that searchs the claim and checks if it has a proper secondary 
         """        
         log_message("Start - Determine If Valid Secondary Claim")
 
         seq_number_to_check = "2"
-        labels_dict = {}
+        new_labels_dict = deepcopy(labels_dict)
 
         switch_window("Waystar", self.claims_search_url)
         act_on_element('//select[@id="SearchCriteria_Status"]', "click_element")
@@ -94,29 +95,29 @@ class Waystar():
 
         claim_seq = act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]/td[contains(@class, "sequenceNumCell")]', "find_element").text
         if seq_number_to_check == claim_seq.strip():
-            labels_dict['labels_to_add'].append("AR:Secondary Billed")
-            labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
+            new_labels_dict['labels_to_add'].append("AR:Secondary Billed")
+            new_labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
         else:   
             payer_name_waystar = act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]/td[contains(@class, "subPayerCell")]/span', "find_element").get_attribute("title")
             if "tricare" in payer_name_waystar.lower() or "humana" in payer_name_waystar.lower():
-                labels_dict['labels_to_add'].append("TA: Payor Exclusion")
+                new_labels_dict['labels_to_add'].append("TA: Payor Exclusion")
             else:
                 try:
                     act_on_element('//table[@id="claimsGrid"]//tr[contains(@class,"tagRow")][1]//span[@title = "Has Remit"]', 'find_element', 2)
                 except:
                     log_message("Claim doesn't have remit")
-                    labels_dict['labels_to_add'].append("TA: No Primary Remit")
-        return labels_dict
+                    new_labels_dict['labels_to_add'].append("TA: No Primary Remit")
+        return new_labels_dict
 
     def populate_payer_information(self, mapping_file_data_dict_list: list, payor_name_cr: str):
         """
         Function that populates payer information from the mapping file to Waystar using the CentralReach payor name.
         """
         log_message("Start - Populate Payer Information")
-
+        switch_window("Waystar")
         self.browser.mouse_over('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]')
         act_on_element('//a[@id="gridActionSecond"]', 'click_element')
-        switch_window("WaystarSubInfo")
+        switch_window("WaystarSubInfo", open_new_window = False)
         act_on_element('//input[@id="scr1_ChangePayerButton"]', 'click_element')
         payor = next((payor for payor in mapping_file_data_dict_list['Payor List'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
         print("Payor", payor)
@@ -133,11 +134,10 @@ class Waystar():
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerzip"]', payor_address['Zip'])
         time.sleep(5) #delete later
         if RunMode.save_changes:
-            print("Save changes")
+            act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
         else:
             print("Don't save changes")
-        act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
-        #act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
+            act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
         #act_on_element('//input[@id="NextButton"]', 'click_element')
         log_message("Finish - Populate Payer Information")
 
@@ -169,11 +169,11 @@ class Waystar():
         log_message("Finish - Populate Authorization and Subscriber Information")
 
 
-    def check_remit_information(self, mapping_file_data_dict_list: list, payor_name_cr: str, provider_label: str):
+    def check_remit_information(self, mapping_file_data_dict_list: list, payor_name_cr: str, provider_label: str, labels_dict: dict):
         """
         Function that checks if the remit information is valid to proceed. Otherwise set labels.
         """
-        labels_dict = {}
+        new_labels_dict = deepcopy(labels_dict)
         payor = next((payor for payor in mapping_file_data_dict_list['Payor List'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
         print("Payor", payor)
         if payor:
@@ -182,15 +182,17 @@ class Waystar():
                 act_on_element('//input[@id="NextButton"]', 'click_element')
                 valid_adjudication = self.check_adjudication_information()
                 if valid_adjudication:
-                    self.populate_modifiers_information(mapping_file_data_dict_list, payor_name_cr, provider_label)
-                    labels_dict['labels_to_add'].append("AR:Secondary Billed")
-                    labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
+                    act_on_element('//input[@id="NextButton"]', 'click_element')
+                    self.populate_modifiers_information(payor, mapping_file_data_dict_list, payor_name_cr, provider_label)
+                    new_labels_dict['labels_to_add'].append("AR:Secondary Billed")
+                    new_labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
                 else:
-                    labels_dict['labels_to_add'].append("TA: Multiple Primary Remits")
+                    new_labels_dict['labels_to_add'].append("TA: Multiple Primary Remits")
             else:
-                labels_dict['labels_to_add'].append("TA: Rendering Provider")
+                new_labels_dict['labels_to_add'].append("TA: Rendering Provider")
         else:
             raise Exception("Waystar payor in mapping file not found")
+        return new_labels_dict
 
     def check_billing_information(self, payor_dict: dict):
         """
