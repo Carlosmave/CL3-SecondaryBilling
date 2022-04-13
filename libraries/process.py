@@ -1,5 +1,5 @@
-from re import S
-from libraries.common import act_on_element, log_message, capture_page_screenshot, browser
+from libraries.common import log_message, capture_page_screenshot, browser
+from libraries.sharepoint.sharepoint import SharePoint
 from libraries.centralreach.centralreach import CentralReach
 from libraries.waystar.waystar import Waystar
 import time
@@ -28,55 +28,53 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        print(credentials)
+        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        sharepoint.download_file()
+
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
         self.centralreach = centralreach
 
-        # waystar = Waystar(browser, credentials["Waystar"])
-        # #waystar.login()
-        # self.waystar = waystar
+        waystar = Waystar(browser, credentials["Waystar"])
+        waystar.login()
+        self.waystar = waystar
+        
 
     def start(self):
         """
         This is where the main process takes place, function, depends on your process, can contain:
           - splitted into macro steps that go one by one
           - contains the main process loop
+
+        --------------------- THIS IS NOT THE FINAL PROCESS VERSION. IT WILL CHANGE
         """
-        log_message("Macro Step 1: Prepare for Process")
-        # mapping_file_data_dict = self.waystar.read_local_mapping_file()
-        #print(mapping_file_data_dict)
-        log_message("Macro Step 2: Prepare to Process Claims")
+        log_message("--------------- [Macro Step 2: Prepare for Process] ---------------")
+        mapping_file_data_dict = self.waystar.read_mapping_file()
+        log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
         self.centralreach.filter_claims_list()
-        self.centralreach.duplicate_filtered_claims_tab()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[:5]:
-            payor_name = payor_element.find_element_by_xpath('./span').text
-            payor_name = payor_name.replace(">", "").strip()
-            log_message("Processing claims for payor {}".format(payor_name))
-            is_excluded_payor = self.centralreach.check_excluded_payors(payor_name)
-            if not is_excluded_payor:
-                act_on_element(payor_element, "click_element")
-                time.sleep(1)
+        for payor_element in payor_element_list[2:]:
+            self.centralreach.get_payor_name_from_element(payor_element)
+            if self.centralreach.payor_name:
+                log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
                 claims_result_list = self.centralreach.get_claims_result()
-                for claims_row in claims_result_list:
-                    claim_id = self.centralreach.get_claim_id(claims_row)
-                    log_message("Processing claim with id {}".format(claim_id))
-                    claim_payor = self.centralreach.get_claim_payor()
-                    log_message("The payor of the claim is {}".format(claim_payor))
-                    sc_medicaid_cr_name = "s: south carolina medicaid"
-                    if sc_medicaid_cr_name in claim_payor.lower():
+                for claim_row in claims_result_list:
+                    is_sc_medicaid = self.centralreach.get_claim_information(claim_row)
+                    log_message("***Processing claim with id {}****".format(self.centralreach.claim_id))
+                    if is_sc_medicaid:
                         print("SC Medicaid")
                     else:
-                        print("Waystar")
-                    time.sleep(3)
-            else:
-                log_message("{} is a excluded payor. Skipping.".format(payor_name))
-            self.centralreach.go_to_filtered_claims_table()
-            time.sleep(3)
-
-                    
-        
+                        log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
+                        self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
+                        applied_labels = self.centralreach.apply_and_remove_labels_to_claims()
+                        if not applied_labels:
+                            is_valid_auth_number = self.centralreach.get_authorization_number()
+                            if is_valid_auth_number:
+                                self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
+                                self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
+                                self.centralreach.apply_and_remove_labels_to_claims()
+                  
 
     def finish(self):
         """
