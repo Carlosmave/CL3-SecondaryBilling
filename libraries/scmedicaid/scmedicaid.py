@@ -3,6 +3,7 @@ from libraries.common import (
     log_message,
     act_on_element,
     capture_page_screenshot,
+    switch_window
 )
 from config import OUTPUT_FOLDER
 
@@ -23,11 +24,11 @@ class SCMedicaid():
         """
         try:
             log_message("Start - Login SCMedicaid")
-            self.browser.go_to(self.scmedicaid_url)
+            switch_window("SCMedicaid", self.scmedicaid_url)
             self.input_credentials()
             self.select_provider()
             log_message("Finish - Login SCMedicaid")
-        except Exception as e:
+        except Exception:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_scmedicaid_Login")
             raise Exception("Login to SCMedicaid failed")
 
@@ -39,8 +40,8 @@ class SCMedicaid():
         # self.browser.click_element('//a[text()="LOGIN"]')
         self.browser.input_text_when_element_is_visible('//input[@id="username"]', self.scmedicaid_login)
         self.browser.input_text_when_element_is_visible('//input[@id="password"]', self.scmedicaid_password)
-        self.browser.click_element('//button[@id="submit_0"]')
-        act_on_element('//div[@id="content"]', "find_element")
+        self.browser.click_element('//input[@id="submit_0"]')
+        act_on_element('//div[@id="content"]', "find_element", 10)
         
     def select_provider(self):
         act_on_element('//select[@id="providerID2"]', "click_element")
@@ -56,8 +57,19 @@ class SCMedicaid():
         act_on_element('//a[@id="listwindowdisplaylink" and text() ="Get from List"]', "click_element")
         table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
         last_name_xpath = 'child::td[@class="lastName" and text() = "{}"]'.format(last_name)
-        first_name_xpath = 'child::td[@class="firstName" and text() = "Cadence"]'.format(first_name)
+        first_name_xpath = 'child::td[@class="firstName" and text() = "{}"]'.format(first_name)
         full_xpath = '{}[{} and {}]//a[@class="memberListLink"]'.format(table_base_xpath, last_name_xpath, first_name_xpath)
         print(full_xpath)
         act_on_element(full_xpath, "click_element") 
+        act_on_element('//input[@value="Continue"]', "click_element") 
+
+    def populate_rendering_provider(self, manager_name):
+        act_on_element('//input[@id="checkbox_4a7e0e6cd49b0"]', "click_element")
+        act_on_element('//a[@id="rendProvListWindowDisplayLink_4a7e0e6cd49b0"]', "click_element") 
+        table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
+        manager_name_xpath = 'child::td[@class="providerName" and text() = "{}"]'.format(manager_name)
+        full_xpath = '{}[{}]//a[@class="providerListLink"]'.format(table_base_xpath, manager_name_xpath)
+        print(full_xpath)
+        act_on_element(full_xpath, "click_element") 
+
         
