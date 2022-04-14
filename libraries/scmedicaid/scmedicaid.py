@@ -58,8 +58,9 @@ class SCMedicaid():
         act_on_element('//a[@id="listwindowdisplaylink" and text() = "Get from List"]', "click_element")
         time.sleep(1)
         table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-        last_name_xpath = 'child::td[@class="lastName" and text() = "{}"]'.format(last_name)
-        first_name_xpath = 'child::td[@class="firstName" and text() = "{}"]'.format(first_name)
+        last_name_xpath = 'child::td[@class="lastName" and contains(translate(text(), "{}", "{}"), "{}")]'.format(last_name.upper(), last_name.lower(), last_name.lower())
+        first_name_xpath = 'child::td[@class="firstName" and contains(translate(text(), "{}", "{}"), "{}")]'.format(first_name.upper(), first_name.lower(), first_name.lower())
+        #//table[@class="t-data-grid"]/tbody/tr[child::td[@class="firstName" and contains(translate(text(), 'ETHAN', 'ethan'), 'ethan')]]//a[@class="memberListLink"]
         full_xpath = '{}[{} and {}]//a[@class="memberListLink"]'.format(table_base_xpath, last_name_xpath, first_name_xpath)
         print(full_xpath)
         act_on_element(full_xpath, "click_element") 
@@ -109,3 +110,46 @@ class SCMedicaid():
             self.browser.input_text_when_element_is_visible('//input[@name="units"]', service_line['units'])
             time.sleep(1)
             act_on_element('//input[@name="addLineButton"]', "click_element")
+            time.sleep(3)
+        act_on_element('//input[@value="Continue"]', "click_element")
+        act_on_element('//input[@value="Continue"]', "click_element")
+    
+    def populate_other_coverage_info(self, client_name):
+        insured_name = client_name.split(" ")
+        insured_name = "{}, {}".format(insured_name[1], insured_name[0])
+        act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
+        number_of_pages = act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager")][last()]', "find_element").text
+        number_of_pages = int(number_of_pages)
+        for page in range(1, number_of_pages + 1):
+            log_message("Populating modifiers for page {} of {}".format(page, number_of_pages))
+            if page > 1:    
+                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page), "click_element") 
+            table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
+            insured_xpath = '[child::td[@class="name"]]//a[normalize-space() = "{}"]'.format(insured_name)
+            full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
+            print(full_xpath)
+            try:
+                act_on_element(full_xpath, "click_element")
+            except:
+                pass
+            else:
+                print("Patient {} was found in page {}".format(client_name, page))
+                
+                
+            time.sleep(3)
+        #act_on_element('//input[@value="Continue"]', "click_element")
+    def fill_insured_coverage_form(self, insured_info):
+        paid_amount_input = act_on_element('//input[@name="paidAmount"]', "find_element")
+        paid_amount_input.click()
+        paid_amount_input.clear()
+        self.browser.input_text_when_element_is_visible(paid_amount_input, insured_info['paid_amount'])
+        self.browser.input_text_when_element_is_visible('//input[@name="paidDate"]', insured_info['paid_date'])
+        coinsurance_amount_input = act_on_element('//input[@name="coinsuranceAmount"]', "find_element")
+        coinsurance_amount_input.click()
+        coinsurance_amount_input.clear()
+        self.browser.input_text_when_element_is_visible(coinsurance_amount_input, insured_info['coinsurance_amount'])
+        act_on_element('//select[@name="placeOfService"]', "click_element")
+        act_on_element('//select[@name="placeOfService"]/option[@value="{}"]'.format(service_line['place']), "click_element")
+        self.browser.input_text_when_element_is_visible('//input[@name="hcpcsCode"]', service_line['hcpcs_code'])
+        self.browser.input_text_when_element_is_visible('//input[@name="charge"]', service_line['charge'])
+        self.browser.input_text_when_element_is_visible('//input[@name="units"]', service_line['units'])
