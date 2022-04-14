@@ -290,7 +290,32 @@ class CentralReach():
 
             time.sleep(5)
 
-    
+    def get_service_lines(self):
+        service_lines_base_xpath = '//div[contains(@data-bind, "filteredServiceLines()") and descendant::h2[contains(normalize-space(), "Service Lines")]]'
+        service_lines_table_xpath = '{}/table/tbody/tr'.format(service_lines_base_xpath)
+        print(service_lines_table_xpath)
+        service_lines_dict_list = []
+        service_lines_rows = act_on_element(service_lines_table_xpath, 'find_elements')
+        for service_lines_row in service_lines_rows:
+            date_from = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "serviceDateFrom")]').text
+            place = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "placeOfService")]').text
+            hcpcs_code = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "formattedService")]').text.strip()
+            charges = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "amount")]').text
+            charges = charges.replace("$", "").strip()
+            units = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "formattedUnits")]').text
+            units = units.replace("UN", "").strip()
+
+            service_lines_dict = {
+                "from_date_service": date_from,
+                "to_date_service" : date_from,
+                "place": place,
+                "hcpcs_code": hcpcs_code,
+                "charge": charges,
+                "units": units
+            }
+            service_lines_dict_list.append(service_lines_dict)
+        return service_lines_dict_list
+
     def apply_and_remove_labels_to_claims(self):
         """
         Function that bulk applies and removes certain labels to claims.

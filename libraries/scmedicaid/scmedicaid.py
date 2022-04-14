@@ -6,7 +6,7 @@ from libraries.common import (
     switch_window
 )
 from config import OUTPUT_FOLDER
-
+import time
 
 class SCMedicaid():
 
@@ -17,6 +17,7 @@ class SCMedicaid():
         self.scmedicaid_password = credentials["password"]
         self.provider_to_work = "EARLY AUTISM PROJECT INC - 1417477175"
         self.enter_professional_claim_url = "https://portal.scmedicaid.com/claimsentry/cmsclaimslist"
+        self.primary_diagnosis_code = "F840"
 
     def login(self):
         """
@@ -50,26 +51,61 @@ class SCMedicaid():
         self.browser.go_to(self.enter_professional_claim_url)
         act_on_element('//input[@id="submit_3" and @value="Enter New Claim"]', "click_element")
 
-    def populate_beneficiary_information(self, client_name):
+    def populate_beneficiary_information(self, client_name: str):
         split_name = client_name.split(" ")
         first_name = split_name[0]
         last_name = split_name[1]
-        act_on_element('//a[@id="listwindowdisplaylink" and text() ="Get from List"]', "click_element")
+        act_on_element('//a[@id="listwindowdisplaylink" and text() = "Get from List"]', "click_element")
+        time.sleep(1)
         table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
         last_name_xpath = 'child::td[@class="lastName" and text() = "{}"]'.format(last_name)
         first_name_xpath = 'child::td[@class="firstName" and text() = "{}"]'.format(first_name)
         full_xpath = '{}[{} and {}]//a[@class="memberListLink"]'.format(table_base_xpath, last_name_xpath, first_name_xpath)
         print(full_xpath)
         act_on_element(full_xpath, "click_element") 
+        time.sleep(1)
         act_on_element('//input[@value="Continue"]', "click_element") 
 
-    def populate_rendering_provider(self, manager_name):
-        act_on_element('//input[@id="checkbox_4a7e0e6cd49b0"]', "click_element")
-        act_on_element('//a[@id="rendProvListWindowDisplayLink_4a7e0e6cd49b0"]', "click_element") 
+    def populate_rendering_provider(self, manager_name: str):
+        act_on_element('//div[@class="fieldRow" and child::label[text() = "Billing provider and rendering provider are the same"]]/input[@name="checkbox"]', "click_element")
+        act_on_element('//h4[contains(text(), "Rendering Provider")]/a[text() = "Get from List"]', "click_element") 
         table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-        manager_name_xpath = 'child::td[@class="providerName" and text() = "{}"]'.format(manager_name)
+        manager_name_xpath = 'child::td[@class="providerName" and text() = "{}"]'.format(manager_name.upper())
         full_xpath = '{}[{}]//a[@class="providerListLink"]'.format(table_base_xpath, manager_name_xpath)
         print(full_xpath)
-        act_on_element(full_xpath, "click_element") 
+        act_on_element(full_xpath, "click_element")
+        time.sleep(1)
+        act_on_element('//input[@value="Continue"]', "click_element") 
 
+    def populate_authorization_number(self, authorization_number : str):
+        self.browser.input_text_when_element_is_visible('//input[@name="priorAuthNumber"]', authorization_number)
+        time.sleep(1)
+        act_on_element('//input[@value="Continue"]', "click_element")
+
+    def populate_primary_diagnosis(self):
+        act_on_element('//div[contains(text(), "Primary Diagnosis Code")]/a[text() = "Get from List"]', "click_element") 
+        table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
+        primary_diagnosis_code_xpath = '//a[@class="codeListLink" and text() = "{}"]'.format(self.primary_diagnosis_code)
+        full_xpath = '{}{}'.format(table_base_xpath, primary_diagnosis_code_xpath)
+        print(full_xpath)
+        act_on_element(full_xpath, "click_element")
+        time.sleep(1)
+        act_on_element('//input[@value="Continue"]', "click_element")
         
+    def populate_det_lines(self, service_lines_dict_list: list):
+        for service_line in service_lines_dict_list:
+            from_date_service_input = act_on_element('//input[@name="fromDateOfService"]', "find_element")
+            from_date_service_input.click()
+            from_date_service_input.clear()
+            self.browser.input_text_when_element_is_visible(from_date_service_input, service_line['from_date_service'])
+            to_date_service_input = act_on_element('//input[@name="toDateOfService"]', "find_element")
+            to_date_service_input.click()
+            to_date_service_input.clear()
+            self.browser.input_text_when_element_is_visible(to_date_service_input, service_line['to_date_service'])
+            act_on_element('//select[@name="placeOfService"]', "click_element")
+            act_on_element('//select[@name="placeOfService"]/option[@value="{}"]'.format(service_line['place']), "click_element")
+            self.browser.input_text_when_element_is_visible('//input[@name="hcpcsCode"]', service_line['hcpcs_code'])
+            self.browser.input_text_when_element_is_visible('//input[@name="charge"]', service_line['charge'])
+            self.browser.input_text_when_element_is_visible('//input[@name="units"]', service_line['units'])
+            time.sleep(1)
+            act_on_element('//input[@name="addLineButton"]', "click_element")

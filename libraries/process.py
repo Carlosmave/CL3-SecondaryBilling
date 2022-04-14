@@ -29,8 +29,8 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
-        sharepoint.download_file()
+        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        # sharepoint.download_file()
 
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
@@ -80,7 +80,25 @@ class Process:
         #                         self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
         #                         self.centralreach.apply_and_remove_labels_to_claims()
         log_message("--------------- [Macro Step 5: Process Claims in SC Medicaid] ---------------")
-        self.sc_medicaid.populate_beneficiary_information("Perri Johnson")     
+        self.sc_medicaid.populate_beneficiary_information("Perri Johnson")
+        self.sc_medicaid.populate_rendering_provider("Jennifer Prince")
+        #is_valid_auth_number = self.centralreach.get_authorization_number()
+        is_valid_auth_number = True
+        self.centralreach.authorization_number = "QD68994"
+        if is_valid_auth_number:
+            self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
+            #service_lines_list = self.centralreach.get_service_lines()
+            service_lines_list = [{
+                "from_date_service": "03/21/2022",
+                "to_date_service" : "03/21/2022",
+                "place": "11",
+                "hcpcs_code": "97153",
+                "charge": "660.00",
+                "units": "12"
+            }]
+            self.sc_medicaid.populate_primary_diagnosis()
+            self.sc_medicaid.populate_det_lines(service_lines_list)
+        time.sleep(5)
 
     def finish(self):
         """
