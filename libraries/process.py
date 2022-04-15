@@ -106,7 +106,7 @@ class Process:
             }]
             self.sc_medicaid.populate_primary_diagnosis()
             self.sc_medicaid.populate_det_lines(service_lines_list)
-            self.sc_medicaid.populate_other_coverage_info("Jackson Talbott")
+            self.sc_medicaid.populate_other_coverage_info("John Hatchell")
         time.sleep(5)
 
     def finish(self):

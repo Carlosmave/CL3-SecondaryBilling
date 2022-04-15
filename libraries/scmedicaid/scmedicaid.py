@@ -120,23 +120,37 @@ class SCMedicaid():
         act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
         number_of_pages = act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager")][last()]', "find_element").text
         number_of_pages = int(number_of_pages)
+        insured_clients_found_list = []
         for page in range(1, number_of_pages + 1):
             log_message("Populating modifiers for page {} of {}".format(page, number_of_pages))
             if page > 1:    
                 act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page), "click_element") 
+                time.sleep(1)
             table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
             insured_xpath = '[child::td[@class="name"]]//a[normalize-space() = "{}"]'.format(insured_name)
             full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
             print(full_xpath)
             try:
-                act_on_element(full_xpath, "click_element")
+                insured_element = act_on_element(full_xpath, "find_element", 1)
             except:
                 pass
             else:
+                insured_found = [insured_element, page]
+                insured_clients_found_list.append(insured_found)
                 print("Patient {} was found in page {}".format(client_name, page))
-                
-                
-            time.sleep(3)
+
+        act_on_element('//div[contains(@id, "insuredListWindow")]//div[@class="bluelighting_close" and contains(@id, "close")]', "click_element")
+        time.sleep(5)
+        
+        print("Searching every client")
+        for insured in insured_clients_found_list:
+            act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
+            insured_element = insured[0]
+            page_number = insured[1]
+            if page_number > 1:    
+                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page_number), "click_element")
+            act_on_element(insured_element, "click_element", 3)
+
         #act_on_element('//input[@value="Continue"]', "click_element")
     def fill_insured_coverage_form(self, insured_info):
         paid_amount_input = act_on_element('//input[@name="paidAmount"]', "find_element")
@@ -148,8 +162,4 @@ class SCMedicaid():
         coinsurance_amount_input.click()
         coinsurance_amount_input.clear()
         self.browser.input_text_when_element_is_visible(coinsurance_amount_input, insured_info['coinsurance_amount'])
-        act_on_element('//select[@name="placeOfService"]', "click_element")
-        act_on_element('//select[@name="placeOfService"]/option[@value="{}"]'.format(service_line['place']), "click_element")
-        self.browser.input_text_when_element_is_visible('//input[@name="hcpcsCode"]', service_line['hcpcs_code'])
-        self.browser.input_text_when_element_is_visible('//input[@name="charge"]', service_line['charge'])
-        self.browser.input_text_when_element_is_visible('//input[@name="units"]', service_line['units'])
+        
