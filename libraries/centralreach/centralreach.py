@@ -21,9 +21,11 @@ class CentralReach():
         self.full_filtered_claims_url = ""
         self.payor_name = ""
         self.client_id = ""
+        self.client_name = ""
         self.claim_id = ""
         self.provider_label = ""
         self.authorization_number = ""
+        self.manager_name = ""
         self.sc_medicaid_cr_name = "S: South Carolina Medicaid"
         self.labels_dict = {}
         self.subscriber_info_dict = {}
@@ -159,8 +161,12 @@ class CentralReach():
             switch_window("CentralReachClaim1", claim_search_url)
             time.sleep(2)
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
-            self.client_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10).get_attribute("contactid")
-            print("client_id", self.client_id)
+            client_element = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10)
+            self.client_id = client_element.get_attribute("contactid")
+            act_on_element(client_element, 'click_element')
+            self.client_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
+            print("Client id {}, Client name: {}".format(self.client_id, self.client_name))
+            act_on_element('//th[text() = "RATE"]', 'click_element')
             act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(provider_column_pos),'click_element', 10)
             self.provider_label = act_on_element('//span[@class="tag-name" and contains(text(), "Certification")]', 'find_element').text
             self.labels_dict = {
@@ -220,6 +226,9 @@ class CentralReach():
             if len(valid_secondary_claims) == 1:
                 secondary_row = valid_secondary_claims[0]
                 auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
+                act_on_element(secondary_row.find_element_by_xpath('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = 5 and descendant::a[text() = "SECONDARY"]]]//a[contains(@data-koset, "managerId")]'), 'click_element')
+                self.manager_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
+                print("manager_name", self.manager_name)
                 self.browser.go_to(auth_doc_url)
                 self.authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]', 'find_element', 15).get_attribute("value")
             elif len(valid_secondary_claims) >= 2:
@@ -233,7 +242,6 @@ class CentralReach():
         """
         Function that checks if the authorization number is valid. Otherwise, apply labels
         """
-        valid_auth_number = True
         if self.authorization_number is None:
             self.labels_dict['labels_to_add'].append("TA: Split Secondary Auth")
             self.apply_and_remove_labels_to_claims()
@@ -243,8 +251,7 @@ class CentralReach():
             self.apply_and_remove_labels_to_claims()
             valid_auth_number = False
         else:
-            self.get_subscriber_information()
-
+            valid_auth_number = True
         return valid_auth_number
         
     def get_subscriber_information(self):
@@ -291,11 +298,13 @@ class CentralReach():
             time.sleep(5)
 
     def get_service_lines(self):
+        service_lines_claim_url = "https://members.centralreach.com/#claims/editor/?claimId={}&page=serviceLines".format(self.claim_id)
+        switch_window("CentralReachClaim2", service_lines_claim_url)
         service_lines_base_xpath = '//div[contains(@data-bind, "filteredServiceLines()") and descendant::h2[contains(normalize-space(), "Service Lines")]]'
         service_lines_table_xpath = '{}/table/tbody/tr'.format(service_lines_base_xpath)
         print(service_lines_table_xpath)
         service_lines_dict_list = []
-        service_lines_rows = act_on_element(service_lines_table_xpath, 'find_elements')
+        service_lines_rows = act_on_element(service_lines_table_xpath, 'find_elements', 10)
         for service_lines_row in service_lines_rows:
             date_from = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "serviceDateFrom")]').text
             place = service_lines_row.find_element_by_xpath('./td[contains(@data-bind, "placeOfService")]').text
@@ -315,6 +324,20 @@ class CentralReach():
             }
             service_lines_dict_list.append(service_lines_dict)
         return service_lines_dict_list
+
+    
+    def get_total_amounts(self):
+        act_on_element('//a[text() = "Load Totals"]', 'click_element')
+        owed_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded")]//span[contains(@data-bind, "amountOwedAgreed")]', 'find_element').text
+        paid_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded")]//th[contains(@data-bind, "amountPaid")]', 'find_element').text
+        act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")][last()]//a[@class="toggle-payments"]', 'click_element')
+        paid_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@data-bind, "data-paymentid")]//span[contains(@data-bind, "dateDisplay")][1]', 'find_element').text
+        total_amounts_dict = {
+            "paid_amount": paid_amount,
+            "coinsurance_amount": owed_amount,
+            "paid_date": paid_date
+        }
+        return total_amounts_dict
 
     def apply_and_remove_labels_to_claims(self):
         """

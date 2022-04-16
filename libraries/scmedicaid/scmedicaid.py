@@ -49,9 +49,10 @@ class SCMedicaid():
         act_on_element('//select[@id="providerID2"]/option[text() = "{}"]'.format(self.provider_to_work), "click_element")
         act_on_element('//input[@id="update"]', "click_element")
         self.browser.go_to(self.enter_professional_claim_url)
-        act_on_element('//input[@id="submit_3" and @value="Enter New Claim"]', "click_element")
+        act_on_element('//input[@id="submit_3" and @value="Enter New Claim"]', "click_element", 10)
 
     def populate_beneficiary_information(self, client_name: str):
+        switch_window("SCMedicaid")
         split_name = client_name.split(" ")
         first_name = split_name[0]
         last_name = split_name[1]
@@ -79,6 +80,7 @@ class SCMedicaid():
         act_on_element('//input[@value="Continue"]', "click_element") 
 
     def populate_authorization_number(self, authorization_number : str):
+        switch_window("SCMedicaid")
         self.browser.input_text_when_element_is_visible('//input[@name="priorAuthNumber"]', authorization_number)
         time.sleep(1)
         act_on_element('//input[@value="Continue"]', "click_element")
@@ -94,6 +96,7 @@ class SCMedicaid():
         act_on_element('//input[@value="Continue"]', "click_element")
         
     def populate_det_lines(self, service_lines_dict_list: list):
+        switch_window("SCMedicaid")
         for service_line in service_lines_dict_list:
             from_date_service_input = act_on_element('//input[@name="fromDateOfService"]', "find_element")
             from_date_service_input.click()
@@ -120,7 +123,7 @@ class SCMedicaid():
         act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
         number_of_pages = act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager")][last()]', "find_element").text
         number_of_pages = int(number_of_pages)
-        insured_clients_found_list = []
+        page_numbers_client_found_list = []
         for page in range(1, number_of_pages + 1):
             log_message("Populating modifiers for page {} of {}".format(page, number_of_pages))
             if page > 1:    
@@ -135,21 +138,24 @@ class SCMedicaid():
             except:
                 pass
             else:
-                insured_found = [insured_element, page]
-                insured_clients_found_list.append(insured_found)
+                page_numbers_client_found_list.append(page)
                 print("Patient {} was found in page {}".format(client_name, page))
 
         act_on_element('//div[contains(@id, "insuredListWindow")]//div[@class="bluelighting_close" and contains(@id, "close")]', "click_element")
         time.sleep(5)
         
         print("Searching every client")
-        for insured in insured_clients_found_list:
+        for page_number in page_numbers_client_found_list:
             act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
-            insured_element = insured[0]
-            page_number = insured[1]
             if page_number > 1:    
                 act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page_number), "click_element")
-            act_on_element(insured_element, "click_element", 3)
+            table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
+            insured_xpath = '[child::td[@class="name"]]//a[normalize-space() = "{}"]'.format(insured_name)
+            full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
+            print(full_xpath)
+            act_on_element(full_xpath, "click_element", 3)
+            print("changing")
+            time.sleep(2)
 
         #act_on_element('//input[@value="Continue"]', "click_element")
     def fill_insured_coverage_form(self, insured_info):

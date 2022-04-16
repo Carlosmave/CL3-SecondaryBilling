@@ -32,13 +32,13 @@ class Process:
         # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
         # sharepoint.download_file()
 
-        # centralreach = CentralReach(browser, credentials["CentralReach"])
-        # centralreach.login()
-        # self.centralreach = centralreach
+        centralreach = CentralReach(browser, credentials["CentralReach"])
+        centralreach.login()
+        self.centralreach = centralreach
 
-        # waystar = Waystar(browser, credentials["Waystar"])
-        # waystar.login()
-        # self.waystar = waystar
+        waystar = Waystar(browser, credentials["Waystar"])
+        waystar.login()
+        self.waystar = waystar
 
         sc_medicaid = SCMedicaid(browser, credentials["SCMedicaid"])
         sc_medicaid.login()
@@ -53,60 +53,43 @@ class Process:
 
         --------------------- THIS IS NOT THE FINAL PROCESS VERSION. IT WILL CHANGE
         """
-        # log_message("--------------- [Macro Step 2: Prepare for Process] ---------------")
-        # mapping_file_data_dict = self.waystar.read_mapping_file()
-        # log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
-        # self.centralreach.filter_claims_list()
-        # payor_element_list = self.centralreach.get_payors_list()
-        # for payor_element in payor_element_list[2:]:
-        #     self.centralreach.get_payor_name_from_element(payor_element)
-        #     if self.centralreach.payor_name:
-        #         log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
-        #         claims_result_list = self.centralreach.get_claims_result()
-        #         for claim_row in claims_result_list:
-        #             is_sc_medicaid = self.centralreach.get_claim_information(claim_row)
-        #             log_message("***Processing claim with id {}****".format(self.centralreach.claim_id))
-        #             if is_sc_medicaid:
-        #                 print("SC Medicaid")
-        #             else:
-        #                 log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
-        #                 self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
-        #                 applied_labels = self.centralreach.apply_and_remove_labels_to_claims()
-        #                 if not applied_labels:
-        #                     is_valid_auth_number = self.centralreach.get_authorization_number()
-        #                     if is_valid_auth_number:
-        #                         self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
-        #                         self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
-        #                         self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
-        #                         self.centralreach.apply_and_remove_labels_to_claims()
-        log_message("--------------- [Macro Step 5: Process Claims in SC Medicaid] ---------------")
-        self.sc_medicaid.populate_beneficiary_information("Jackson Talbott")
-        self.sc_medicaid.populate_rendering_provider("Jennifer Prince")
-        #is_valid_auth_number = self.centralreach.get_authorization_number()
-        is_valid_auth_number = True
-        #self.centralreach.authorization_number = "QD68994"
-        if is_valid_auth_number:
-            #self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
-            self.sc_medicaid.populate_authorization_number("QD68994")
-            #service_lines_list = self.centralreach.get_service_lines()
-            service_lines_list = [{
-                "from_date_service": "03/21/2022",
-                "to_date_service" : "03/21/2022",
-                "place": "11",
-                "hcpcs_code": "97153",
-                "charge": "660.00",
-                "units": "12"
-            },{
-                "from_date_service": "03/26/2022",
-                "to_date_service" : "03/26/2022",
-                "place": "11",
-                "hcpcs_code": "97153",
-                "charge": "880.00",
-                "units": "16"
-            }]
-            self.sc_medicaid.populate_primary_diagnosis()
-            self.sc_medicaid.populate_det_lines(service_lines_list)
-            self.sc_medicaid.populate_other_coverage_info("John Hatchell")
+        log_message("--------------- [Macro Step 2: Prepare for Process] ---------------")
+        mapping_file_data_dict = self.waystar.read_mapping_file()
+        log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
+        self.centralreach.filter_claims_list()
+        payor_element_list = self.centralreach.get_payors_list()
+        for payor_element in payor_element_list[12:]:
+            self.centralreach.get_payor_name_from_element(payor_element)
+            if self.centralreach.payor_name:
+                log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
+                claims_result_list = self.centralreach.get_claims_result()
+                for claim_row in claims_result_list:
+                    is_sc_medicaid = self.centralreach.get_claim_information(claim_row)
+                    log_message("***Processing claim with id {}****".format(self.centralreach.claim_id))
+                    if is_sc_medicaid:
+                        print("SC Medicaid")
+                        log_message("--------------- [Macro Step 5: Process Claims in SC Medicaid] ---------------")
+                        is_valid_auth_number = self.centralreach.get_authorization_number()
+                        if is_valid_auth_number:
+                            service_lines_list = self.centralreach.get_service_lines()
+                            self.sc_medicaid.populate_beneficiary_information(self.centralreach.client_name)
+                            self.sc_medicaid.populate_rendering_provider(self.centralreach.manager_name)
+                            self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
+                            self.sc_medicaid.populate_primary_diagnosis()
+                            self.sc_medicaid.populate_det_lines(service_lines_list)
+                            self.sc_medicaid.populate_other_coverage_info("John Hatchell")
+                    else:
+                        log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
+                        self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
+                        applied_labels = self.centralreach.apply_and_remove_labels_to_claims()
+                        if not applied_labels:
+                            is_valid_auth_number = self.centralreach.get_authorization_number()
+                            #if is_valid_auth_number:
+                                #self.centralreach.get_subscriber_information()
+                                # self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                # self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
+                                # self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
+                                # self.centralreach.apply_and_remove_labels_to_claims()
         time.sleep(5)
 
     def finish(self):
