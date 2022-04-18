@@ -109,7 +109,7 @@ class Waystar():
                     new_labels_dict['labels_to_add'].append("TA: No Primary Remit")
         return new_labels_dict
 
-    def populate_payer_information(self, mapping_file_data_dict_list: list, payor_name_cr: str):
+    def populate_payer_information(self, mapping_file_data_dict_list: dict, payor_name_cr: str):
         """
         Function that populates payer information from the mapping file to Waystar using the CentralReach payor name.
         """
@@ -169,7 +169,7 @@ class Waystar():
         log_message("Finish - Populate Authorization and Subscriber Information")
 
 
-    def check_remit_information(self, mapping_file_data_dict_list: list, payor_name_cr: str, provider_label: str, labels_dict: dict):
+    def check_remit_information(self, mapping_file_data_dict_list: dict, payor_name_cr: str, provider_label: str, labels_dict: dict):
         """
         Function that checks if the remit information is valid to proceed. Otherwise set labels.
         """

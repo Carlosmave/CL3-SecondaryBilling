@@ -5,8 +5,10 @@ from libraries.common import (
     capture_page_screenshot,
     switch_window
 )
-from config import OUTPUT_FOLDER
+from config import OUTPUT_FOLDER, RunMode
 import time
+from copy import deepcopy
+
 
 class SCMedicaid():
 
@@ -115,49 +117,69 @@ class SCMedicaid():
             act_on_element('//input[@name="addLineButton"]', "click_element")
             time.sleep(3)
         act_on_element('//input[@value="Continue"]', "click_element")
-        act_on_element('//input[@value="Continue"]', "click_element")
+        time.sleep(1)
+        act_on_element('//input[@value="Continue"]', "click_element", 10)
     
-    def populate_other_coverage_info(self, client_name):
+    def populate_other_coverage_info(self, client_name: str, total_amount_info: dict, labels_dict):
+        new_labels_dict = deepcopy(labels_dict)
+
         insured_name = client_name.split(" ")
         insured_name = "{}, {}".format(insured_name[1], insured_name[0])
         act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
         number_of_pages = act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager")][last()]', "find_element").text
         number_of_pages = int(number_of_pages)
-        page_numbers_client_found_list = []
+        clients_found_dict_list = []
         for page in range(1, number_of_pages + 1):
             log_message("Populating modifiers for page {} of {}".format(page, number_of_pages))
             if page > 1:    
                 act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page), "click_element") 
                 time.sleep(1)
             table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-            insured_xpath = '[child::td[@class="name"]]//a[normalize-space() = "{}"]'.format(insured_name)
+            insured_xpath = '[child::td[@class="name" and child::a[normalize-space() = "{}"]]]//td[@class="policyNum"]'.format(insured_name)
             full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
             print(full_xpath)
             try:
-                insured_element = act_on_element(full_xpath, "find_element", 1)
+                insured_elements = act_on_element(full_xpath, "find_elements", 1)
             except:
                 pass
             else:
-                page_numbers_client_found_list.append(page)
-                print("Patient {} was found in page {}".format(client_name, page))
+                print("Patient {} was found in page {} - {} time(s)".format(client_name, page, len(insured_elements)))
+                insured_found = [{"page": page, "policy_num": insured_element.text} for insured_element in insured_elements]
+                print(insured_found)
+                clients_found_dict_list.extend(insured_found)
 
         act_on_element('//div[contains(@id, "insuredListWindow")]//div[@class="bluelighting_close" and contains(@id, "close")]', "click_element")
         time.sleep(5)
-        
-        print("Searching every client")
-        for page_number in page_numbers_client_found_list:
+        total_amount_info = self.calculate_insured_amounts(total_amount_info, len(clients_found_dict_list))
+        print("Searching every client with new total amount", total_amount_info)
+        for client_found in clients_found_dict_list:
             act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
-            if page_number > 1:    
-                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page_number), "click_element")
+            if client_found['page'] > 1:    
+                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(client_found['page']), "click_element")
             table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-            insured_xpath = '[child::td[@class="name"]]//a[normalize-space() = "{}"]'.format(insured_name)
+            insured_xpath = '[child::td[@class="policyNum" and text() = "{}"]]//a[normalize-space() = "{}"]'.format(client_found['policy_num'], insured_name)
             full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
             print(full_xpath)
             act_on_element(full_xpath, "click_element", 3)
+            self.fill_insured_coverage_form(total_amount_info)
+            act_on_element('//input[@name="addTplRecordButton" and @value = "Save"]', "click_element")
             print("changing")
-            time.sleep(2)
+            time.sleep(5)
+        
+        if RunMode.save_changes:
+            act_on_element('//input[@value="Finish Claim"]" and @value = "Save"]', "click_element")
 
-        #act_on_element('//input[@value="Continue"]', "click_element")
+        new_labels_dict['labels_to_add'].append("AR:Secondary Billed")
+        new_labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
+        return new_labels_dict
+
+
+    def calculate_insured_amounts(self, insured_amounts_dict, number_of_rows):
+        new_insured_amounts = insured_amounts_dict.copy()
+        new_insured_amounts['paid_amount'] = str(round(float(new_insured_amounts['paid_amount']) / number_of_rows, 2))
+        new_insured_amounts['coinsurance_amount'] = str(round(float(new_insured_amounts['coinsurance_amount']) / number_of_rows, 2))
+        return new_insured_amounts
+    
     def fill_insured_coverage_form(self, insured_info):
         paid_amount_input = act_on_element('//input[@name="paidAmount"]', "find_element")
         paid_amount_input.click()
@@ -168,4 +190,3 @@ class SCMedicaid():
         coinsurance_amount_input.click()
         coinsurance_amount_input.clear()
         self.browser.input_text_when_element_is_visible(coinsurance_amount_input, insured_info['coinsurance_amount'])
-        

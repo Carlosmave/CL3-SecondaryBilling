@@ -77,19 +77,18 @@ class Process:
                             self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
                             self.sc_medicaid.populate_primary_diagnosis()
                             self.sc_medicaid.populate_det_lines(service_lines_list)
-                            self.sc_medicaid.populate_other_coverage_info("John Hatchell")
+                            self.centralreach.labels_dict = self.sc_medicaid.populate_other_coverage_info(self.centralreach.client_name, self.centralreach.total_amounts_dict, self.centralreach.labels_dict)
                     else:
                         log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
                         self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
-                        applied_labels = self.centralreach.apply_and_remove_labels_to_claims()
-                        if not applied_labels:
+                        if len(self.centralreach.labels_dict['labels_to_add']) == 0 or len(self.centralreach.labels_dict['labels_to_remove']) == 0:
                             is_valid_auth_number = self.centralreach.get_authorization_number()
-                            #if is_valid_auth_number:
-                                #self.centralreach.get_subscriber_information()
-                                # self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
-                                # self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
-                                # self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
-                                # self.centralreach.apply_and_remove_labels_to_claims()
+                            if is_valid_auth_number:
+                                self.centralreach.get_subscriber_information()
+                                self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
+                                self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
+                                self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
+                    self.centralreach.apply_and_remove_labels_to_claims()
         time.sleep(5)
 
     def finish(self):

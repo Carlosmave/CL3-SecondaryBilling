@@ -6,7 +6,7 @@ from libraries.common import (
     switch_window
 )
 from config import OUTPUT_FOLDER, RunMode, tabs_dict
-from datetime import datetime
+from datetime import date, datetime
 
 class CentralReach():
 
@@ -29,6 +29,8 @@ class CentralReach():
         self.sc_medicaid_cr_name = "S: South Carolina Medicaid"
         self.labels_dict = {}
         self.subscriber_info_dict = {}
+        self.total_amounts_dict = {}
+        self.labels_applied_count = 0
 
 
 
@@ -163,6 +165,7 @@ class CentralReach():
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
             client_element = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10)
             self.client_id = client_element.get_attribute("contactid")
+            self.get_total_amounts()
             act_on_element(client_element, 'click_element')
             self.client_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
             print("Client id {}, Client name: {}".format(self.client_id, self.client_name))
@@ -244,11 +247,9 @@ class CentralReach():
         """
         if self.authorization_number is None:
             self.labels_dict['labels_to_add'].append("TA: Split Secondary Auth")
-            self.apply_and_remove_labels_to_claims()
             valid_auth_number = False
         elif self.authorization_number == "":
             self.labels_dict['labels_to_add'].append("TA: No Secondary Auth")
-            self.apply_and_remove_labels_to_claims()
             valid_auth_number = False
         else:
             valid_auth_number = True
@@ -328,16 +329,19 @@ class CentralReach():
     
     def get_total_amounts(self):
         act_on_element('//a[text() = "Load Totals"]', 'click_element')
-        owed_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded")]//span[contains(@data-bind, "amountOwedAgreed")]', 'find_element').text
-        paid_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded")]//th[contains(@data-bind, "amountPaid")]', 'find_element').text
+        owed_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded") and not(contains(@style, "display: none"))]//span[contains(@data-bind, "amountOwedAgreed")]', 'find_element').text
+        owed_amount = owed_amount.replace("$", "").strip()
+        paid_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded") and not(contains(@style, "display: none"))]//th[contains(@data-bind, "amountPaid")]', 'find_element').text
+        paid_amount = paid_amount.replace("$", "").strip()
         act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")][last()]//a[@class="toggle-payments"]', 'click_element')
         paid_date = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@data-bind, "data-paymentid")]//span[contains(@data-bind, "dateDisplay")][1]', 'find_element').text
-        total_amounts_dict = {
+        paid_date = datetime.strptime(paid_date, '%m/%d/%y').strftime('%m/%d/%Y')
+        self.total_amounts_dict = {
             "paid_amount": paid_amount,
             "coinsurance_amount": owed_amount,
             "paid_date": paid_date
         }
-        return total_amounts_dict
+        print("total_amounts_dictm", self.total_amounts_dict)
 
     def apply_and_remove_labels_to_claims(self):
         """
@@ -346,6 +350,9 @@ class CentralReach():
         log_message("Start - Apply and Remove Labels to Claims")
         applied_changes = True
         if len(self.labels_dict['labels_to_add']) > 0 or len(self.labels_dict['labels_to_remove']) > 0:
+            self.labels_applied_count += 1
+            print("labels_applied_count", self.labels_applied_count)
+
             switch_window("CentralReachClaim1")
             time.sleep(2)
             labels_to_add = self.labels_dict.get('labels_to_add', [])
