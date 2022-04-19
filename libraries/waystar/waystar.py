@@ -19,17 +19,19 @@ class Waystar():
         """
         Login to Waystar with Bitwarden credentials.
         """
+        log_message("Start - Login Waystar")
         try:
-            log_message("Start - Login Waystar")
             switch_window("Waystar", self.waystar_url)
             self.input_credentials()
             self.check_additional_authentication()
             act_on_element('//div[@id="mainContent"]', "find_element")
-            log_message("Finish - Login Waystar")
+            
         except Exception:
             capture_page_screenshot(OUTPUT_FOLDER, "Exception_waystar_Login")
             raise Exception("Login to Waystar failed")
+        log_message("Finish - Login Waystar")
 
+        
     def input_credentials(self):
         """
         Function that writes the credentials and submits the login form.
@@ -56,6 +58,7 @@ class Waystar():
         Function that opens the mapping file and reads the specified sheets
         """
         log_message("Start - Read Mapping File")
+
         mapping_file_data = {
             "Payor List": [],
             "Payor Address": [],
@@ -107,6 +110,8 @@ class Waystar():
                 except:
                     log_message("Claim doesn't have remit")
                     new_labels_dict['labels_to_add'].append("TA: No Primary Remit")
+
+        log_message("Finish - Determine If Valid Secondary Claim")
         return new_labels_dict
 
     def populate_payer_information(self, mapping_file_data_dict_list: dict, payor_name_cr: str):
@@ -114,19 +119,18 @@ class Waystar():
         Function that populates payer information from the mapping file to Waystar using the CentralReach payor name.
         """
         log_message("Start - Populate Payer Information")
+
         switch_window("Waystar")
         self.browser.mouse_over('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]')
         act_on_element('//a[@id="gridActionSecond"]', 'click_element')
         switch_window("WaystarSubInfo", open_new_window = False)
         act_on_element('//input[@id="scr1_ChangePayerButton"]', 'click_element')
         payor = next((payor for payor in mapping_file_data_dict_list['Payor List'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
-        print("Payor", payor)
         if payor:
             self.browser.input_text_when_element_is_visible('//input[@id="scr1_name"]', payor['Waystar Payer Name'])
             self.browser.input_text_when_element_is_visible('//input[@id="scr1_payerid"]', payor['Payer ID'])
             if payor['Requires Address'].upper() == "YES":
                 payor_address = next((payor for payor in mapping_file_data_dict_list['Payor Address'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
-                print("Payor address", payor_address)
                 if payor_address:
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payeradd1"]', payor_address['Address Line 1'])
                     self.browser.input_text_when_element_is_visible('//input[@id="scr1_payercity"]', payor_address['City'])
@@ -136,9 +140,8 @@ class Waystar():
         if RunMode.save_changes:
             act_on_element('//input[@id="scr1_SaveButton"]', 'click_element')
         else:
-            print("Don't save changes")
             act_on_element('//a[@id="scr1_CloseWindow"]', 'click_element')
-        #act_on_element('//input[@id="NextButton"]', 'click_element')
+        
         log_message("Finish - Populate Payer Information")
 
     def populate_authorization_and_subscriber_information(self, subscriber_info_dict: dict, authorization_number: str):
@@ -146,6 +149,7 @@ class Waystar():
         Function that populates subscriber information that was previously extracted from CentralReach
         """
         log_message("Start - Populate Authorization and Subscriber Information")
+
         release_information_option_value = "Y"
         assign_benefits_option_value = "Y"
 
@@ -175,7 +179,6 @@ class Waystar():
         """
         new_labels_dict = deepcopy(labels_dict)
         payor = next((payor for payor in mapping_file_data_dict_list['Payor List'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
-        print("Payor", payor)
         if payor:
             valid_billing = self.check_billing_information(payor)
             if valid_billing:
@@ -199,7 +202,9 @@ class Waystar():
         Checks if the payor is a RENDERING provider and the individual rendering option is checked on Waystar
         """
         log_message("Start - Check Billing Information")
+
         individual_rendering_checked = act_on_element('//input[@id="scr2_rendering_FV_rbIndividual"]', 'find_element').get_attribute("checked")
+
         log_message("Finish - Check Billing Information")
         return payor_dict['Rendering Provider'].upper() == "RENDERING" and individual_rendering_checked
                 
@@ -208,20 +213,22 @@ class Waystar():
         Function that checks if claim paid date, payer paid amount and other payer control number inputs are auto-populated
         """
         log_message("Start - Check Adjudication Information")
+
         adjudication_date_value = act_on_element('//input[@id="scr3_FV_claimpaiddate"]', 'find_element').get_attribute("value")
         payer_paid_amount_value = act_on_element('//input[@id="scr3_FV_payerpaid"]', 'find_element').get_attribute("value")
         other_payer_claim_control_num_value = act_on_element('//input[@id="scr3_FV_otherPayerControlNum"]', 'find_element').get_attribute("value")
+
         log_message("Finish - Check Adjudication Information")
         return adjudication_date_value and payer_paid_amount_value and other_payer_claim_control_num_value
     
 
-    def populate_modifiers_information(self, payor_dict: dict, mapping_file_data_dict_list: list, payor_name_cr: str, provider_label: str):
+    def populate_modifiers_information(self, payor_dict: dict, mapping_file_data_dict_list: dict, payor_name_cr: str, provider_label: str):
         """
         Function that populates modifiers for each service row based on the mapping file information.
         Each row can be populated up to 2 modifiers with two different types (PROVIDER and PLACE OF SERVICE)
         """
-
         log_message("Start - Populate Modifiers Information")
+
         if payor_dict['MODIFIER'].upper() == "YES":
             number_of_modifiers = payor_dict['# OF MODIFIERS']
             place_of_service_column_pos = 4
@@ -242,14 +249,12 @@ class Waystar():
                                 modifier = "MODIFIER {}".format(modifier_number)
                                 if payor_dict[modifier].upper() == "PROVIDER":
                                     provider_modifier = next((provider_mod for provider_mod in mapping_file_data_dict_list['Provider Modifier'] if payor_name_cr.upper() == str(provider_mod['CentralReach Payor Name']).upper() and provider_label.upper() == str(provider_mod['Provider Label']).upper() and procedure_code.upper() == str(provider_mod['Billing Code']).upper()), None)
-                                    print(provider_modifier)
                                     if provider_modifier:
                                         modifier_input = service_row.find_element_by_xpath('./td[{}]//input[{}]'.format(modifiers_column_pos, modifier_number))
                                         self.browser.input_text_when_element_is_visible(modifier_input, provider_modifier["PROVIDER {}".format(modifier)])
                                 elif payor_dict[modifier].upper() == "PLACE OF SERVICE":
                                     place_of_service_value = service_row.find_element_by_xpath('./td[{}]//input'.format(place_of_service_column_pos)).get_attribute("value")
                                     location_modifier = next((location_mod for location_mod in mapping_file_data_dict_list['Location Modifier'] if payor_name_cr.upper() == str(location_mod['Payor'].upper()) and place_of_service_value == str(location_mod['Location'])), None)
-                                    print(location_modifier)
                                     if location_modifier:
                                         modifier_input = service_row.find_element_by_xpath('./td[{}]//input[{}]'.format(modifiers_column_pos, modifier_number))
                                         self.browser.input_text_when_element_is_visible(modifier_input, location_modifier[modifier.title()])
@@ -269,4 +274,5 @@ class Waystar():
             act_on_element('//input[@id="SubmitButton"]', 'click_element')
         else:
             close_window("WaystarSubInfo")
+
         log_message("Finish - Populate Modifiers Information")

@@ -3,7 +3,8 @@ from libraries.common import (
     log_message,
     act_on_element,
     capture_page_screenshot,
-    switch_window
+    switch_window,
+    get_month_difference_between_dates
 )
 from config import OUTPUT_FOLDER, RunMode, tabs_dict
 from datetime import date, datetime
@@ -15,8 +16,10 @@ class CentralReach():
         self.centralreach_url = credentials["url"]
         self.centralreach_login = credentials["login"]
         self.centralreach_password = credentials["password"]
+        #self.start_date = "09/01/2021"
         self.start_date = "03/01/2022"
         self.end_date = "03/27/2022"
+        self.maximum_months_date_range = 6
         self.base_filtered_claims_url = ""
         self.full_filtered_claims_url = ""
         self.payor_name = ""
@@ -27,8 +30,10 @@ class CentralReach():
         self.authorization_number = ""
         self.manager_name = ""
         self.sc_medicaid_cr_name = "S: South Carolina Medicaid"
+        self.payor_is_sc_medicaid = False
         self.labels_dict = {}
         self.subscriber_info_dict = {}
+        self.relationship_to_check = "18"
         self.total_amounts_dict = {}
         self.labels_applied_count = 0
 
@@ -155,17 +160,22 @@ class CentralReach():
             switch_window("CentralReachMain")
             entry_id = claim_result.get_attribute("id")
             entry_id = entry_id.split("billing-grid-row-")[1].strip()
+
             billing_entry_url = "https://members.centralreach.com/#claims/list/?billingEntryId={}".format(entry_id)
             switch_window("CentralReachClaim2", billing_entry_url)
-
             self.claim_id = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(claim_id_column_pos), "find_element").text
             claim_search_url = "{}&claimId={}".format(self.base_filtered_claims_url, self.claim_id)
+            
             switch_window("CentralReachClaim1", claim_search_url)
             time.sleep(2)
             claim_payor = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]'.format(payor_column_pos),'find_element', 10).text
             client_element = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item") and position() = 1]/td[{}]/a[contains(@class, "vcard")]'.format(client_name_column_pos),'find_element', 10)
             self.client_id = client_element.get_attribute("contactid")
-            self.get_total_amounts()
+            
+            if self.sc_medicaid_cr_name.lower() in claim_payor.lower():
+                self.payor_is_sc_medicaid = True
+                self.get_total_amounts()
+
             act_on_element(client_element, 'click_element')
             self.client_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
             print("Client id {}, Client name: {}".format(self.client_id, self.client_name))
@@ -181,7 +191,6 @@ class CentralReach():
             raise Exception("Get Claim information failed.")
         
         log_message("Finish - Get Claim Information")
-        return self.sc_medicaid_cr_name.lower() in claim_payor.lower()
          
 
     def get_authorization_number(self):
@@ -205,7 +214,7 @@ class CentralReach():
         act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
         act_on_element('//button[child::span[@data-bind="text: year"]]','click_element')
         act_on_element('//li/a[@data-click="setYear" and text() = "{}"]'.format(claim_year_date),'click_element')
-        time.sleep(3)
+        time.sleep(2)
         try:
             secondary_rows = act_on_element('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = {} and descendant::a[text() = "SECONDARY"]]]'.format(code_column_pos),'find_elements')
         except:
@@ -228,15 +237,16 @@ class CentralReach():
                 
             if len(valid_secondary_claims) == 1:
                 secondary_row = valid_secondary_claims[0]
+                if self.payor_is_sc_medicaid:
+                    act_on_element(secondary_row.find_element_by_xpath('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = 5 and descendant::a[text() = "SECONDARY"]]]//a[contains(@data-koset, "managerId")]'), 'click_element')
+                    self.manager_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
+                
                 auth_doc_url = secondary_row.find_element_by_xpath('./td[{}]/a[child::i[contains(@class, "fa-file")]]'.format(code_column_pos)).get_attribute("href")
-                act_on_element(secondary_row.find_element_by_xpath('//div[@class="module-grid"]/table/tbody/tr[child::td[position() = 5 and descendant::a[text() = "SECONDARY"]]]//a[contains(@data-koset, "managerId")]'), 'click_element')
-                self.manager_name = act_on_element('//div[@id="contactcard"]//h5[@class="no-margin-bottom"]', 'find_element').text
-                print("manager_name", self.manager_name)
                 self.browser.go_to(auth_doc_url)
                 self.authorization_number = act_on_element('//input[@data-bind="value: authorizationNumber"]', 'find_element', 15).get_attribute("value")
             elif len(valid_secondary_claims) >= 2:
                 self.authorization_number = None
-        time.sleep(5)
+        time.sleep(5) # delete later
         log_message("Finish - Get authorization number in CentralReach")
         return self.check_if_valid_auth_number()
 
@@ -277,8 +287,7 @@ class CentralReach():
             act_on_element('//a[@data-toggle="tab" and child::span[text() = "Patient"]]','click_element')
             patient_relationship_to_subscriber = act_on_element('//select[contains(@data-bind, "value: relationType")]','find_element').get_attribute("value")
 
-            relationship_to_check = "18"
-            if patient_relationship_to_subscriber.upper() == relationship_to_check.upper():
+            if patient_relationship_to_subscriber.upper() == self.relationship_to_check.upper():
                 birthday = "{}/{}/{}".format(birth_date_month, birth_date_day, birth_date_year)
             else:
                 birthday = ""
@@ -293,17 +302,17 @@ class CentralReach():
             self.subscriber_info_dict['patient_relationship_to_subscriber'] = patient_relationship_to_subscriber
             self.subscriber_info_dict['birthday'] = birthday
 
-            print("subscriber_info", self.subscriber_info_dict)
-            log_message("Finish - Get Subscriber Information on CentralReach")
-
-            time.sleep(5)
+        log_message("Finish - Get Subscriber Information on CentralReach")
 
     def get_service_lines(self):
+        """
+        Function that returns the service lines of the claim in a list of dictionaries
+        """
+        log_message("Start - Get Service Lines from CentralReach")
         service_lines_claim_url = "https://members.centralreach.com/#claims/editor/?claimId={}&page=serviceLines".format(self.claim_id)
         switch_window("CentralReachClaim2", service_lines_claim_url)
         service_lines_base_xpath = '//div[contains(@data-bind, "filteredServiceLines()") and descendant::h2[contains(normalize-space(), "Service Lines")]]'
         service_lines_table_xpath = '{}/table/tbody/tr'.format(service_lines_base_xpath)
-        print(service_lines_table_xpath)
         service_lines_dict_list = []
         service_lines_rows = act_on_element(service_lines_table_xpath, 'find_elements', 10)
         for service_lines_row in service_lines_rows:
@@ -324,11 +333,31 @@ class CentralReach():
                 "units": units
             }
             service_lines_dict_list.append(service_lines_dict)
+        log_message("Finish - Get Service Lines from CentralReach")
         return service_lines_dict_list
 
     
     def get_total_amounts(self):
-        act_on_element('//a[text() = "Load Totals"]', 'click_element')
+        """
+        Function that gets the total amounts (Owed and Paid) from the claims generated with the same claim number
+        If the date range entered is greater than 6 months, then set the new date range based on the first and last claim.
+        """
+        log_message("Start - Get Claims Total Amounts from CentralReach")
+        start_date_temp = datetime.strptime(self.start_date, "%m/%d/%Y")
+        end_date_temp = datetime.strptime(self.end_date, "%m/%d/%Y")
+
+        month_difference = get_month_difference_between_dates(end_date_temp, start_date_temp)
+        if month_difference >= self.maximum_months_date_range:
+            log_message("Month difference is greater than {} months".format(self.maximum_months_date_range))
+            date_column_pos = 7
+            claim_dates = act_on_element('//div[@id="content"]/table/tbody/tr[contains(@class, "row-item")]/td[{}]/span[contains(@class, "inline-block")]'.format(date_column_pos),'find_elements')
+            claim_dates = [datetime.strptime(claim_date.text, "%m/%d/%y").strftime("%Y-%m-%d") for claim_date in claim_dates]
+            new_start_date = claim_dates[-1]
+            new_end_date = claim_dates[0]
+            new_claim_url = "https://members.centralreach.com/#billingmanager/billing/?startdate={}&enddate={}&claimId={}".format(new_start_date, new_end_date, self.claim_id)
+            self.browser.go_to(new_claim_url)
+
+        act_on_element('//a[text() = "Load Totals"]', 'click_element', 10)
         owed_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded") and not(contains(@style, "display: none"))]//span[contains(@data-bind, "amountOwedAgreed")]', 'find_element').text
         owed_amount = owed_amount.replace("$", "").strip()
         paid_amount = act_on_element('//tr[contains(@data-bind, "totalsLoaded") and not(contains(@style, "display: none"))]//th[contains(@data-bind, "amountPaid")]', 'find_element').text
@@ -341,7 +370,7 @@ class CentralReach():
             "coinsurance_amount": owed_amount,
             "paid_date": paid_date
         }
-        print("total_amounts_dictm", self.total_amounts_dict)
+        log_message("Finish - Get Claims Total Amounts from CentralReach")
 
     def apply_and_remove_labels_to_claims(self):
         """
@@ -354,7 +383,7 @@ class CentralReach():
             print("labels_applied_count", self.labels_applied_count)
 
             switch_window("CentralReachClaim1")
-            time.sleep(2)
+            time.sleep(1)
             labels_to_add = self.labels_dict.get('labels_to_add', [])
             labels_to_remove = self.labels_dict.get('labels_to_remove', [])
             try:
@@ -369,7 +398,7 @@ class CentralReach():
                     self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Remove Labels"]//input[@class="select2-input select2-default"]', label)
                     act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
                 
-                time.sleep(2)
+                time.sleep(2) #delete later
                 if RunMode.save_changes:
                     act_on_element('//button[text() = "Apply Label Changes"]','click_element')
                 else:

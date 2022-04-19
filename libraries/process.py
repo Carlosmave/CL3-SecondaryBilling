@@ -40,9 +40,9 @@ class Process:
         waystar.login()
         self.waystar = waystar
 
-        sc_medicaid = SCMedicaid(browser, credentials["SCMedicaid"])
-        sc_medicaid.login()
-        self.sc_medicaid = sc_medicaid
+        # sc_medicaid = SCMedicaid(browser, credentials["SCMedicaid"])
+        # sc_medicaid.login()
+        # self.sc_medicaid = sc_medicaid
         
 
     def start(self):
@@ -58,26 +58,25 @@ class Process:
         log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
         self.centralreach.filter_claims_list()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[12:]:
+        for payor_element in payor_element_list[2:]:
             self.centralreach.get_payor_name_from_element(payor_element)
             if self.centralreach.payor_name:
                 log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
                 claims_result_list = self.centralreach.get_claims_result()
                 for claim_row in claims_result_list:
-                    is_sc_medicaid = self.centralreach.get_claim_information(claim_row)
+                    self.centralreach.get_claim_information(claim_row)
                     log_message("***Processing claim with id {}****".format(self.centralreach.claim_id))
-                    if is_sc_medicaid:
-                        print("SC Medicaid")
+                    if self.centralreach.payor_is_sc_medicaid:
                         log_message("--------------- [Macro Step 5: Process Claims in SC Medicaid] ---------------")
                         is_valid_auth_number = self.centralreach.get_authorization_number()
-                        if is_valid_auth_number:
-                            service_lines_list = self.centralreach.get_service_lines()
-                            self.sc_medicaid.populate_beneficiary_information(self.centralreach.client_name)
-                            self.sc_medicaid.populate_rendering_provider(self.centralreach.manager_name)
-                            self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
-                            self.sc_medicaid.populate_primary_diagnosis()
-                            self.sc_medicaid.populate_det_lines(service_lines_list)
-                            self.centralreach.labels_dict = self.sc_medicaid.populate_other_coverage_info(self.centralreach.client_name, self.centralreach.total_amounts_dict, self.centralreach.labels_dict)
+                        # if is_valid_auth_number:
+                        #     service_lines_list = self.centralreach.get_service_lines()
+                        #     self.sc_medicaid.populate_beneficiary_information(self.centralreach.client_name)
+                        #     self.sc_medicaid.populate_rendering_provider(self.centralreach.manager_name)
+                        #     self.sc_medicaid.populate_authorization_number(self.centralreach.authorization_number)
+                        #     self.sc_medicaid.populate_primary_diagnosis()
+                        #     self.sc_medicaid.populate_det_lines(service_lines_list)
+                        #     self.centralreach.labels_dict = self.sc_medicaid.populate_other_coverage_info(self.centralreach.client_name, self.centralreach.total_amounts_dict, self.centralreach.labels_dict)
                     else:
                         log_message("--------------- [Macro Step 4: Process Claims in Waystar] ---------------")
                         self.centralreach.labels_dict = self.waystar.determine_if_valid_secondary_claim(self.centralreach.claim_id, self.centralreach.labels_dict)
@@ -88,6 +87,8 @@ class Process:
                                 self.waystar.populate_payer_information(mapping_file_data_dict, self.centralreach.payor_name)
                                 self.waystar.populate_authorization_and_subscriber_information(self.centralreach.subscriber_info_dict, self.centralreach.authorization_number)
                                 self.centralreach.labels_dict = self.waystar.check_remit_information(mapping_file_data_dict, self.centralreach.payor_name, self.centralreach.provider_label, self.centralreach.labels_dict)
+                    
+                    log_message("--------------- [Macro Step 6: Add/Remove Labels and Bulk-Apply Payments] ---------------")
                     self.centralreach.apply_and_remove_labels_to_claims()
         time.sleep(5)
 
