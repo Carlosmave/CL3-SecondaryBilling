@@ -153,14 +153,20 @@ def switch_window(tab_name: str = "", url: str = "", open_new_window: bool = Tru
             browser.execute_javascript("window.open()")
         tabs_dict[tab_name] = len(tabs_dict)
     tab_index = tabs_dict[tab_name]
-    print("handles", browser.get_window_handles())
     browser.switch_window(locator=browser.get_window_handles()[tab_index])
 
-    print("Registered tabs", tabs_dict)
     if url != "":
         browser.go_to(url)
 
 def close_window(tab_name: str):
+    """
+    Function that close a tab and deletes it from the tabs dictionary
+    """
     browser.execute_javascript("window.close()")
     tabs_dict.pop(tab_name, None)
 
+def get_month_difference_between_dates(end: datetime, start: datetime):
+    """
+    Function that calculates and returns the month difference between a date range 
+    """
+    return (end.year - start.year) * 12 + end.month - start.month
