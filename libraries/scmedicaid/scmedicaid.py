@@ -159,12 +159,14 @@ class SCMedicaid():
         number_of_pages = int(number_of_pages)
         clients_found_dict_list = []
         for page in range(1, number_of_pages + 1):
-            log_message("Populating modifiers for page {} of {}".format(page, number_of_pages))
-            if page > 1:    
-                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page), "click_element") 
-                time.sleep(1)
+            log_message("-Searching insured patient in page {} of {}...".format(page, number_of_pages))
+            try:
+                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(page), "click_element", 2)
+            except:
+                pass
+            act_on_element('//div[@class="t-data-grid-pager"][1]/span[@class="current" and text() = "{}"]'.format(page), "find_element") 
             table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-            insured_xpath = '[child::td[@class="name" and child::a[normalize-space() = "{}"]]]//td[@class="policyNum"]'.format(insured_name)
+            insured_xpath = '[child::td[@class="name" and child::a[contains(translate(text(), "{}", "{}"), "{}")]]]//td[@class="policyNum"]'.format(insured_name.upper(), insured_name.lower(), insured_name.lower())
             full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
             try:
                 insured_elements = act_on_element(full_xpath, "find_elements", 1)
@@ -177,25 +179,31 @@ class SCMedicaid():
 
         act_on_element('//div[contains(@id, "insuredListWindow")]//div[@class="bluelighting_close" and contains(@id, "close")]', "click_element")
         time.sleep(5)#delete later
-        total_amount_info = self.calculate_insured_amounts(total_amount_info, len(clients_found_dict_list))
-        print("Searching every client with new total amount", total_amount_info)
-        for client_found in clients_found_dict_list:
-            act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
-            if client_found['page'] > 1:    
-                act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(client_found['page']), "click_element")
-            table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
-            insured_xpath = '[child::td[@class="policyNum" and text() = "{}"]]//a[normalize-space() = "{}"]'.format(client_found['policy_num'], insured_name)
-            full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
-            act_on_element(full_xpath, "click_element", 3)
-            self.fill_insured_coverage_form(total_amount_info)
-            act_on_element('//input[@name="addTplRecordButton" and @value = "Save"]', "click_element")
-            time.sleep(5) #delete later
-        
-        if RunMode.save_changes:
-            act_on_element('//input[@value="Finish Claim"]" and @value = "Save"]', "click_element")
+        if len(clients_found_dict_list) > 0:
+            total_amount_info = self.calculate_insured_amounts(total_amount_info, len(clients_found_dict_list))
+            print("Searching every client with new total amount", total_amount_info)
+            for client_found in clients_found_dict_list:
+                act_on_element('//h4[contains(text(), "Add/Edit Other Insurance Coverage Information")]/a[text() = "Get from List"]', "click_element")
+                try:
+                    act_on_element('//div[@class="t-data-grid-pager"][1]/a[contains(@id, "pager") and text() = "{}"]'.format(client_found['page']), "click_element", 2)
+                except:
+                    pass
+                act_on_element('//div[@class="t-data-grid-pager"][1]/span[@class="current" and text() = "{}"]'.format(client_found['page']), "find_element")
+                table_base_xpath = '//table[@class="t-data-grid"]/tbody/tr'
+                insured_xpath = '[child::td[@class="policyNum" and text() = "{}"]]//a[contains(translate(text(), "{}", "{}"), "{}")]'.format(client_found['policy_num'], insured_name.upper(), insured_name.lower(), insured_name.lower())
+                full_xpath = '{}{}'.format(table_base_xpath, insured_xpath)
+                act_on_element(full_xpath, "click_element", 3)
+                self.fill_insured_coverage_form(total_amount_info)
+                act_on_element('//input[@name="addTplRecordButton" and @value = "Save"]', "click_element")
+                time.sleep(5) #delete later
+            
+            if RunMode.save_changes:
+                act_on_element('//input[@value="Finish Claim"]" and @value = "Save"]', "click_element")
 
-        new_labels_dict['labels_to_add'].append("AR:Secondary Billed")
-        new_labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
+            new_labels_dict['labels_to_add'].append("AR:Secondary Billed")
+            new_labels_dict['labels_to_remove'].append("AR:Need to Bill Secondary")
+        else:
+            raise Exception("Insured patient not found in SC Medicaid")
         log_message("Finsh - Populate Other Coverage")
         return new_labels_dict
 

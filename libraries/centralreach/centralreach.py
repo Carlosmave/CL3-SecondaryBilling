@@ -121,7 +121,7 @@ class CentralReach():
             switch_window("CentralReachMain")
             self.payor_name = payor_element.find_element_by_xpath('./span').text
             self.payor_name = self.payor_name.replace(">", "").strip()
-            excluded_payors = ["Florida Medicaid", "Kentucky Medicaid FFS", "Kentucky SLP", "Tricare"]
+            excluded_payors = ["Florida Medicaid", "Kentucky Medicaid FFS", "Kentucky Medicaid FFS", "Kentucky SLP", "Tricare"]
             if self.payor_name in excluded_payors:
                 log_message("{} is in the excluded payor list. Skipping".format(self.payor_name))
                 self.payor_name = None
@@ -210,7 +210,7 @@ class CentralReach():
         auth_url = "https://members.centralreach.com/#billingmanager/authorizations/?clientId={}".format(self.client_id)
         
         switch_window("CentralReachClientInfo", auth_url)
-        act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element')
+        act_on_element('//button[child::span[@data-bind="text: monthDisplay"]]','click_element', 15)
         act_on_element('//li[{}]/a[@data-click="setMonth"]'.format(claim_month_date),'click_element')
         act_on_element('//button[child::span[@data-bind="text: year"]]','click_element')
         act_on_element('//li/a[@data-click="setYear" and text() = "{}"]'.format(claim_year_date),'click_element')
@@ -273,7 +273,7 @@ class CentralReach():
 
         payors_patient_info_url = "https://members.centralreach.com/#contacts/details/?id={}&mode=profile&edit=payors".format(self.client_id)
         switch_window("CentralReachClientInfo", payors_patient_info_url)
-        act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]//a[text() = "Details"]'.format(self.payor_name),'click_element', 15)
+        act_on_element('//div[@class="list-group"]/div[descendant::div[@class = "txt-lg" and normalize-space() = "Secondary: {}"]]//a[text() = "Details"]'.format(self.payor_name),'click_element', 20)
         act_on_element('//a[@data-toggle="tab" and child::span[text() = "Subscriber"]]','click_element')
         try:
             first_name = act_on_element('//input[@data-bind="value: firstName"]','find_element').get_attribute("value")
@@ -381,7 +381,7 @@ class CentralReach():
         if len(self.labels_dict['labels_to_add']) > 0 or len(self.labels_dict['labels_to_remove']) > 0:
             self.labels_applied_count += 1
             print("labels_applied_count", self.labels_applied_count)
-
+            print("self.labels_dict", self.labels_dict)
             switch_window("CentralReachClaim1")
             time.sleep(1)
             labels_to_add = self.labels_dict.get('labels_to_add', [])
@@ -391,7 +391,7 @@ class CentralReach():
                 act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//button[contains(normalize-space(), "Label selected")]','click_element')
                 
                 for label in labels_to_add:
-                    self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[@class="select2-input select2-default"]', label)
+                    self.browser.input_text_when_element_is_visible('//div[@class="modal-body"]/div[@class="panel panel-default" and descendant::h4 = "Apply Labels"]//input[contains(@class, "select2-input")]', label)
                     act_on_element('//div[@id="select2-drop"]//div[@class="select2-result-label" and text() = "{}"]'.format(label),'click_element')
                 
                 for label in labels_to_remove:
@@ -405,10 +405,9 @@ class CentralReach():
                     act_on_element('//div[@class="modal in" and descendant::h2[contains(text(), "Bulk Apply Labels")]]//button[text() = "Close"]','click_element')
         
                 act_on_element('//div[@id="content"]/table/thead[@class="tableFloatingHeaderOriginal"]//a[@id="btnBillingPayment"]','click_element')
-                act_on_element('//input[@class = "form-control hasDatepicker"]','find_element', 10)
+                act_on_element('//form[@id="bulk-payments-main-form"]//input[@class = "form-control hasDatepicker"]','find_element', 10)
                 todays_date = datetime.today().strftime("%m/%d/%Y")
-                self.browser.input_text_when_element_is_visible('//input[@class = "form-control hasDatepicker"]', todays_date)
-                
+                self.browser.input_text_when_element_is_visible('//form[@id="bulk-payments-main-form"]//input[@class = "form-control hasDatepicker"]', todays_date)
                 act_on_element('//select[@name="payment-type"]', "click_element")
                 act_on_element('//select[@name="payment-type"]/option[text() = "Activity"]', "click_element")
                 reference_txt = ", ".join(labels_to_add)

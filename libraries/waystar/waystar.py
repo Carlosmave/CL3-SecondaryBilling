@@ -122,7 +122,7 @@ class Waystar():
 
         switch_window("Waystar")
         self.browser.mouse_over('//table[@id="claimsGrid"]//tr[contains(@class,"gridViewRow")][1]')
-        act_on_element('//a[@id="gridActionSecond"]', 'click_element')
+        act_on_element('//a[@id="gridActionSecond"]', 'click_element', 7)
         switch_window("WaystarSubInfo", open_new_window = False)
         act_on_element('//input[@id="scr1_ChangePayerButton"]', 'click_element')
         payor = next((payor for payor in mapping_file_data_dict_list['Payor List'] if payor_name_cr.upper() == str(payor['CentralReach Payor Name']).upper()), None)
@@ -237,15 +237,21 @@ class Waystar():
             page_count = act_on_element('//span[@id="scr4_FV1_topPager_lblPageCount"]', 'find_element').text
             page_count = int(page_count)
             
-            for page in range(page_count):
-                log_message("Populating modifiers for page {} of {}".format(page + 1, page_count))
+            for page in range(1, page_count + 1):
+                log_message("Populating modifiers for page {} of {}".format(page, page_count))
                 try:
+                    act_on_element('//input[@id="scr4_FV1_topPager_txtPage" and @value = "{}"]'.format(page), 'find_element', 4)
                     service_rows = act_on_element('//table[@id="scr4_FV1_GV"]//tr[descendant::a[text() = "Delete"]]', 'find_elements')
+                except:
+                    capture_page_screenshot(OUTPUT_FOLDER, "Exception_get_service_rows_Waystar")
+                    log_message("Get service rows failed")
+                else:
                     for service_row in service_rows:
                         procedure_code = service_row.find_element_by_xpath('./td[{}]//input'.format(procedure_code_column_pos)).get_attribute("value")
                         
                         for modifier_number in range(1, number_of_modifiers + 1):
                             try:
+
                                 modifier = "MODIFIER {}".format(modifier_number)
                                 if payor_dict[modifier].upper() == "PROVIDER":
                                     provider_modifier = next((provider_mod for provider_mod in mapping_file_data_dict_list['Provider Modifier'] if payor_name_cr.upper() == str(provider_mod['CentralReach Payor Name']).upper() and provider_label.upper() == str(provider_mod['Provider Label']).upper() and procedure_code.upper() == str(provider_mod['Billing Code']).upper()), None)
@@ -258,15 +264,17 @@ class Waystar():
                                     if location_modifier:
                                         modifier_input = service_row.find_element_by_xpath('./td[{}]//input[{}]'.format(modifiers_column_pos, modifier_number))
                                         self.browser.input_text_when_element_is_visible(modifier_input, location_modifier[modifier.title()])
-                            except:
+                            except Exception as e:
+                                print(e)
                                 capture_page_screenshot(OUTPUT_FOLDER, "Exception_Populating_Modifier_number_{}_Waystar".format(modifier_number))
                                 log_message("Populating Modifier number {} for payor {} in Waystar failed".format(modifier_number, payor_dict['Waystar Payer Name']))
-                except:
-                    capture_page_screenshot(OUTPUT_FOLDER, "Exception_service_row_Waystar")
-                    log_message("Selecting service to populate modifier failed")
                 
-                if page_count > 1:
-                    act_on_element('//a[@id="scr4_FV1_topPager_lnkNext"]', 'click_element')               
+                
+                if page_count > 1 and page < page_count:
+                    try:
+                        act_on_element('//a[@id="scr4_FV1_topPager_lnkNext"]', 'click_element', 1)
+                    except:
+                        print("next page not clicked")              
         else:
             log_message("This payor doesn't have any modifiers")
         time.sleep(5) #delete later
