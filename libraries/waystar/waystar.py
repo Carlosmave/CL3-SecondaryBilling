@@ -66,8 +66,8 @@ class Waystar():
             "Location Modifier": []
         }
         try:
-            #files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
-            files.open_workbook("{}".format(self.mapping_file_name))
+            files.open_workbook("{}/{}".format(OUTPUT_FOLDER, self.mapping_file_name))
+            #files.open_workbook("{}".format(self.mapping_file_name))
             for sheet_name in mapping_file_data:
                 excel_data_list = files.read_worksheet(name = sheet_name, header = True)
                 excel_data_cleaned_list = [row for row in [{key: value for key, value in row_dict.items() if value != None} for row_dict in excel_data_list] if len(row)>0]

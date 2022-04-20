@@ -29,8 +29,8 @@ class Process:
         browser.set_window_size(1920, 1080)
         browser.maximize_browser_window()
         
-        # sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
-        # sharepoint.download_file()
+        sharepoint = SharePoint(browser, {"url": "https://esaeducation.sharepoint.com/:x:/g/behavioralhealth/cbo/EVatyGRU6WZFgQsYTlWfAFYBph75bBqPFsaMFGUQftMSlA?e=kZf4AY"})
+        sharepoint.download_file()
 
         centralreach = CentralReach(browser, credentials["CentralReach"])
         centralreach.login()
@@ -58,7 +58,7 @@ class Process:
         log_message("--------------- [Macro Step 3: Prepare to Process Claims] ---------------")
         self.centralreach.filter_claims_list()
         payor_element_list = self.centralreach.get_payors_list()
-        for payor_element in payor_element_list[12:]:
+        for payor_element in payor_element_list:
             self.centralreach.get_payor_name_from_element(payor_element)
             if self.centralreach.payor_name:
                 log_message("******* Processing claims for payor {} *******".format(self.centralreach.payor_name))
